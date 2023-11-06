@@ -1,0 +1,290 @@
+<div class="container">
+    <div class="den-page-header">
+        <div class="den-page-title">
+            <h2>ROLES</h2>
+            <button class="den-btn den-create-btn" onclick="createRoleForm()">+</button>
+        </div>
+        <div>
+            <input class="den-input" type="search" placeholder="Search" id="searchInput">
+        </div>
+    </div>
+    
+    <div>
+        <table width="100" id="den-roles-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Permissions</th>
+                    <th width="25%">Action</th>
+                </tr>
+            </thead>
+            <tbody id="den-roles-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL SECTION -->
+<div class="den-modal" style="visibility: hidden;">
+    <div class="den-modal-content">
+        <h2 class="den-modal-title">Add Role</h2>
+
+        <form id="den-role-form">
+            <div class="den-form-group">
+                <label for="name">Name</label>
+                <input id="name" class="den-input" type="name" name="name" value="" required autofocus>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-form-group">
+                <label for="permissions">Select a Permissions</label>
+                <select name="permissions[]" class="den-select" id="permissions" multiple>
+                </select>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-button-group">
+                <button class="den-btn" id="den-role-form-btn">Create</button>
+            </div>
+        </form>
+
+        <button class="den-close-button" onclick="showHideModal()">X</button>
+    </div>
+</div>
+
+
+<script>
+    // Add event listener to the search field to call the searchTable function on every keyup event
+    var searchInput = document.getElementById('searchInput')
+    searchInput.addEventListener('keyup', () => searchTable('den-roles-table', searchInput));
+
+    //QUERY ALL ROLES
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', req: {}}));
+
+
+    // Event listener for receiving messages from the server
+    window.DENONTEK_SOCKET.onmessage = (event) => {
+      const parsedEventData = JSON.parse(event.data);
+
+      if(parsedEventData.type === `roles-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            drawTable(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'allPermissions') {
+            drawPermissionsInSelectTag(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'create') {
+            checkPermission();
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'delete') {
+            checkPermission();
+            resetTable();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'findById'){
+            editRoleSetForm(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'update') {
+            checkPermission();
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+        }
+        
+      }
+
+      if(parsedEventData.type == 'html') {
+        setContent(parsedEventData.data);
+      }
+
+    };
+
+    function drawTable(data) {
+        for (var i = 0; i < data.length; i++) {
+            drawRow(data[i]);
+        }
+    }
+
+    function drawRow(rowData) {
+        const table = document.getElementById("den-roles-table-body"); 
+        const row = document.createElement("tr"); 
+        table.appendChild(row); 
+
+        setTdContent(rowData.role_name, row)
+        drawPermissions(rowData.permissions, row);
+        drawActionBtns(rowData, row);
+    }
+
+    function drawPermissions(rowData, row) {
+        const cell = document.createElement("td");
+
+        let permissions_content = ``;
+        for(let data of rowData) {
+            if(data){
+                permissions_content += `<span class="den-primary-badge">${data.name}</span>`;;
+            }
+        }
+        cell.innerHTML = permissions_content;
+        row.appendChild(cell);
+    }
+
+    function setTdContent(rowData, row) {
+        const cell = document.createElement("td");
+        cell.textContent = rowData;
+        row.appendChild(cell);
+    }
+
+    function drawActionBtns(rowData, row) {
+        const cell = document.createElement("td");
+        cell.innerHTML = `
+        <button class="den-close-button" onclick="deleteRole(${rowData.id})">X</button>
+        <button class="den-edit-button" onclick="editRole(${rowData.id})">EDIT</button>
+        `;
+        row.appendChild(cell);
+    }
+
+    function resetTable() {
+        const tableBody = document.querySelector("#den-roles-table-body");
+
+        // Remove all rows in the table body except the first row (header)
+        while (tableBody.lastElementChild) {
+            tableBody.removeChild(tableBody.lastElementChild);
+        }
+    }
+
+    function deleteRole(id) {
+        confirmBefore().then(() => {
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'delete', req: {body:{id}}}));
+        }).catch((error) => {
+        });
+    }
+
+    function showHideModal() {
+        const modal = document.querySelector('.den-modal');
+        const form = document.getElementById('den-role-form');
+        form.reset();
+        modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
+    }
+
+    function createRole() {
+        alert('create role')
+        try {
+            const form = document.getElementById('den-role-form');
+            // Disable form submit
+            form.addEventListener('submit', (e) => e.preventDefault());
+
+            const formData = new FormData(form);
+
+            const role = {
+                name: getInputValue( formData, 'name'),
+                permissions: getInputValue( formData, 'permissions[]', 'multiple')
+            }
+
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', req: {body: role}}));
+        } catch (error) {
+            alert(error.message.toUpperCase());
+        }
+    }
+
+    function updateRole(id) {
+        try {
+            const form = document.getElementById('den-role-form');
+            // Disable form submit
+            form.addEventListener('submit', (e) => e.preventDefault());
+
+            const formData = new FormData(form);
+
+            const role = {
+                name: getInputValue( formData, 'name'),
+                permissions: getInputValue( formData, 'permissions[]', 'multiple')
+            }
+
+            window.DENONTEK_SOCKET.send(
+                JSON.stringify({
+                    type: "query",
+                    name: "roles",
+                    method: "update",
+                    req: { body: { ...role, id } },
+                })
+            );
+
+        } catch (error) {
+            alert(error.message.toUpperCase());
+        }
+    }
+
+    function editRole(id) {
+        window.DENONTEK_SOCKET.send(
+            JSON.stringify({
+                type: "query",
+                name: "roles",
+                method: "findById",
+                req: { body: { id } },
+            })
+        );
+    }
+
+    function createRoleForm() {
+        const form = document.getElementById('den-role-form');
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('#den-role-form-btn');
+
+        form.reset();
+        modal.style.visibility = 'visible';
+        title.textContent = 'Create Role';
+        button.textContent = 'Create';
+        button.onclick = createRole;
+    }
+
+    function editRoleSetForm(data){
+        const role = data;
+        const form = document.getElementById('den-role-form');
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('#den-role-form-btn');
+
+        form.reset();
+        modal.style.visibility = 'visible';
+        title.textContent = 'Edit Role';
+        button.textContent = 'Update';
+        button.onclick = () => updateRole(role.id);
+
+        form.elements['name'].value = role.name;
+        
+        let selectElement = form.elements['permissions[]'];
+
+        // Iterate through each option in the select element
+        for (let option of selectElement.options) {
+            if (role.permissions.includes(+ option.value)) {
+                option.selected = true;
+            }
+        }
+    }
+
+    function drawPermissionsInSelectTag(permissions = []){
+        for(const permission of permissions) {
+            addOption(permission);
+        }
+
+    }
+
+    function addOption(permission) {
+        const select = document.getElementById('permissions');
+        const option = document.createElement('option');
+        
+        option.text = permission.name;
+        option.value = permission.id;
+
+        select.appendChild(option);
+    }
+
+</script>

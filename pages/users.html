@@ -1,0 +1,300 @@
+<div class="container">
+    <div class="den-page-header">
+        <div class="den-page-title">
+            <h2>USERS</h2>
+            <button class="den-btn den-create-btn" onclick="createUserForm()">+</button>
+        </div>
+        <div>
+            <input class="den-input" type="search" placeholder="Search" id="searchInput">
+        </div>
+    </div>
+    
+    <div>
+        <table width="100" id="den-users-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="den-users-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL SECTION -->
+<div class="den-modal" style="visibility: hidden;">
+    <div class="den-modal-content">
+        <h2 class="den-modal-title">Add User</h2>
+
+        <form id="den-user-form">
+            <div class="den-form-group">
+                <label for="name">Name</label>
+                <input id="name" class="den-input" type="name" name="name" value="" required autofocus>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-form-group">
+                <label for="email">Email</label>
+                <input id="email" class="den-input" type="email" name="email" value="" required autofocus>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-form-group">
+                <label for="name">Password</label>
+                <input id="password" class="den-input" type="password" name="password" value="" required autofocus>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-form-group">
+                <label for="role">Select a Role</label>
+                <select name="role" class="den-select" id="roles">
+                </select>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-button-group">
+                <button class="den-btn" >Create</button>
+            </div>
+        </form>
+
+        <button class="den-close-button" onclick="showHideModal()">X</button>
+    </div>
+</div>
+
+
+<script>
+    // Add event listener to the search field to call the searchTable function on every keyup event
+    var searchInput = document.getElementById('searchInput')
+    searchInput.addEventListener('keyup', () => searchTable('den-users-table', searchInput));
+
+    // QUERY ALL USERS
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+
+    //QUERY ALL ROLES
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+
+
+    
+    
+   
+    
+
+    
+
+    // Event listener for receiving messages from the server
+    window.DENONTEK_SOCKET.onmessage = (event) => {
+      const parsedEventData = JSON.parse(event.data);
+
+      if(parsedEventData.type === `users-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            drawTable(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'create') {
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'update') {
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'delete') {
+            resetTable();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'findById'){
+            editUserSetForm(parsedEventData.data.data);
+        }
+        
+      }
+
+      if(parsedEventData.type === `roles-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            drawRoles(parsedEventData.data.data);
+        }
+        
+      }
+
+      if(parsedEventData.type == 'html') {
+        setContent(parsedEventData.data);
+      }
+
+    };
+
+    function drawTable(data) {
+        for (var i = 0; i < data.length; i++) {
+            drawRow(data[i]);
+        }
+    }
+
+    function drawRow(rowData) {
+        const table = document.getElementById("den-users-table-body"); 
+        const row = document.createElement("tr"); 
+        table.appendChild(row); 
+
+        setTdContent(rowData.user_name, row)
+        setTdContent(rowData.email, row)
+        setTdContent(rowData.role_name, row)
+        drawActionBtns(rowData, row);
+    }
+
+    function setTdContent(rowData, row) {
+        const cell = document.createElement("td");
+        cell.textContent = rowData;
+        row.appendChild(cell);
+    }
+
+    function drawActionBtns(rowData, row) {
+        const cell = document.createElement("td");
+        cell.innerHTML = `
+        <button class="den-close-button" onclick="deleteUser(${rowData.id})">X</button>
+        <button class="den-edit-button" onclick="editUser(${rowData.id})">EDIT</button>
+        `;
+        row.appendChild(cell);
+    }
+
+    function resetTable() {
+        const tableBody = document.querySelector("#den-roles-table-body");
+
+        // Remove all rows in the table body except the first row (header)
+        while (tableBody.lastElementChild) {
+            tableBody.removeChild(tableBody.lastElementChild);
+        }
+    }
+
+    function deleteUser(id) {
+        confirmBefore().then(() => {
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'delete', req: {body:{id}}}));
+        }).catch((error) => {
+        });
+    }
+
+    function showHideModal() {
+        const modal = document.querySelector('.den-modal');
+        const form = document.getElementById('den-user-form');
+        form.reset();
+        modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
+    }
+
+    function drawRoles(roles = []){
+        addOption({name: 'Select a Role', id: ''});
+
+        for(const role of roles) {
+            addOption(role);
+        }
+
+    }
+
+    function addOption(role) {
+        const select = document.getElementById('roles');
+        const option = document.createElement('option');
+        
+        option.text = role.name;
+        option.value = role.id;
+
+        select.appendChild(option);
+    }
+
+    function createUser() {
+        try {
+            const form = document.getElementById('den-user-form');
+            // Disable form submit
+            form.addEventListener('submit', (e) => e.preventDefault());
+
+            const formData = new FormData(form);
+
+            const user = {
+                name: getInputValue( formData, 'name'),
+                email: getInputValue( formData, 'email'),
+                password: getInputValue( formData, 'password'),
+                role_id: getInputValue( formData, 'role')
+            }
+
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'create', req: {body: user}}));
+        } catch (error) {
+            alert(error.message.toUpperCase());
+        }
+    }
+
+    function updateUser(id) {
+        try {
+            const form = document.getElementById('den-user-form');
+            // Disable form submit
+            form.addEventListener('submit', (e) => e.preventDefault());
+
+            const formData = new FormData(form);
+
+            const user = {
+                name: getInputValue( formData, 'name'),
+                email: getInputValue( formData, 'email'),
+                password: getInputValue( formData, 'password'),
+                role_id: getInputValue( formData, 'role')
+            }
+
+            window.DENONTEK_SOCKET.send(
+                JSON.stringify({
+                    type: "query",
+                    name: "users",
+                    method: "update",
+                    req: { body: { ...user, id } },
+                })
+            );
+
+        } catch (error) {
+            alert(error.message.toUpperCase());
+        }
+    }
+
+    function editUser(id) {
+        window.DENONTEK_SOCKET.send(
+            JSON.stringify({
+                type: "query",
+                name: "users",
+                method: "findById",
+                req: { body: { id } },
+            })
+        );
+    }
+
+    function createUserForm() {
+        const form = document.getElementById('den-user-form');
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('.den-button-group button');
+
+        form.reset();
+        modal.style.visibility = 'visible';
+        title.textContent = 'Create User';
+        button.textContent = 'Create';
+        button.onclick = createUser;
+    }
+
+    function editUserSetForm(data){
+        const user = data;
+        const form = document.getElementById('den-user-form');
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('.den-button-group button');
+
+        form.reset();
+        modal.style.visibility = 'visible';
+        title.textContent = 'Edit User';
+        button.textContent = 'Update';
+        button.onclick = () => updateUser(user.id);
+
+        form.elements['name'].value = user.user_name;
+        form.elements['email'].value = user.email;
+        form.elements['password'].value = user.password;
+        form.elements['role'].value = user.role_id;
+    }
+
+
+</script>
