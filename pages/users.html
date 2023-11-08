@@ -13,8 +13,8 @@
         <table width="100" id="den-users-table">
             <thead>
                 <tr>
+                    <th>Id</th>
                     <th>Name</th>
-                    <th>Email</th>
                     <th>Role</th>
                     <th>Action</th>
                 </tr>
@@ -140,8 +140,8 @@
         const row = document.createElement("tr"); 
         table.appendChild(row); 
 
+        setTdContent(rowData.id, row)
         setTdContent(rowData.user_name, row)
-        setTdContent(rowData.email, row)
         setTdContent(rowData.role_name, row)
         drawActionBtns(rowData, row);
     }

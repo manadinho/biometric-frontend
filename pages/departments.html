@@ -10,11 +10,29 @@
     </div>
     
     <div>
+        <!-- <div>
+            <div class="category">Electronics</div>
+            <ul class="subcategory">
+                <li>Laptops 
+                    <span>
+                        <button class="den-close-button" onclick="deleteDepartment(${rowData.id})">X</button>
+                        <button class="den-edit-button" onclick="editDepartment(${rowData.id})">EDIT</button>
+                    </span>
+                </li>
+                <li>Cameras
+                    <span>
+                        <button class="den-close-button" onclick="deleteDepartment(${rowData.id})">X</button>
+                        <button class="den-edit-button" onclick="editDepartment(${rowData.id})">EDIT</button>
+                    </span>
+                </li>
+            </ul>
+        </div> -->
+
         <table width="100" id="den-departments-table">
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>Permissions</th>
+                    <th>Total Employees</th>
                     <th width="25%">Action</th>
                 </tr>
             </thead>
@@ -26,9 +44,9 @@
 <!-- MODAL SECTION -->
 <div class="den-modal" style="visibility: hidden;">
     <div class="den-modal-content">
-        <h2 class="den-modal-title">Add Role</h2>
+        <h2 class="den-modal-title"></h2>
 
-        <form id="den-role-form">
+        <form id="den-department-form">
             <div class="den-form-group">
                 <label for="name">Name</label>
                 <input id="name" class="den-input" type="name" name="name" value="" required autofocus>
@@ -36,14 +54,14 @@
             </div>
 
             <div class="den-form-group">
-                <label for="permissions">Select a Permissions</label>
-                <select name="permissions[]" class="den-select" id="permissions" multiple>
+                <label for="parent_department">Select a Parent Department</label>
+                <select name="parent_department" class="den-select" id="parent_departments">
                 </select>
                 <!-- <div class="den-error">Error messages here</div> -->
             </div>
 
             <div class="den-button-group">
-                <button class="den-btn" id="den-role-form-btn">Create</button>
+                <button class="den-btn" id="den-department-form-btn">Create</button>
             </div>
         </form>
 
@@ -58,45 +76,45 @@
     searchInput.addEventListener('keyup', () => searchTable('den-departments-table', searchInput));
 
     //QUERY ALL ROLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'parentDepartments', req: {}}));
 
 
     // Event listener for receiving messages from the server
     window.DENONTEK_SOCKET.onmessage = (event) => {
       const parsedEventData = JSON.parse(event.data);
 
-      if(parsedEventData.type === `roles-query-response`) {
+      if(parsedEventData.type === `departments-query-response`) {
         if(parsedEventData.data.method === 'all') {
             drawTable(parsedEventData.data.data);
         }
 
-        if(parsedEventData.data.method === 'allPermissions') {
-            drawPermissionsInSelectTag(parsedEventData.data.data);
+        if(parsedEventData.data.method === 'parentDepartments') {
+            drawParentDepartments(parsedEventData.data.data);
         }
 
         if(parsedEventData.data.method === 'create') {
             checkPermission();
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
         }
 
         if(parsedEventData.data.method === 'delete') {
             checkPermission();
             resetTable();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
         }
 
         if(parsedEventData.data.method === 'findById'){
-            editRoleSetForm(parsedEventData.data.data);
+            editDepartmentSetForm(parsedEventData.data.data);
         }
 
         if(parsedEventData.data.method === 'update') {
             checkPermission();
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
         }
         
       }
@@ -108,9 +126,27 @@
     };
 
     function drawTable(data) {
-        for (var i = 0; i < data.length; i++) {
-            drawRow(data[i]);
-        }
+        const result = nestCategories(data);
+        for (var i = 0; i < result.length; i++) {
+            drawParentCategory(result[i]);
+                if(result[i].subcategories.length > 0) {
+                    for (var j = 0; j < result[i].subcategories.length; j++) {
+                        drawRow(result[i].subcategories[j]);
+                    }
+                }
+            }
+    }
+
+    function drawParentCategory(rowData) {
+        const table = document.getElementById("den-departments-table-body"); 
+        const row = document.createElement("tr"); 
+        row.style.backgroundColor = '#242e42';
+        row.style.color = '#fff';
+        table.appendChild(row); 
+
+        setTdContent(rowData.name, row)
+        setTdContent('', row)
+        setTdContent('', row)
     }
 
     function drawRow(rowData) {
@@ -118,35 +154,31 @@
         const row = document.createElement("tr"); 
         table.appendChild(row); 
 
-        setTdContent(rowData.role_name, row)
-        drawPermissions(rowData.permissions, row);
+        setTdContent(rowData.name, row, 'padding-left: 60px;')
+        drawUsersCount(rowData.user_count, row)
         drawActionBtns(rowData, row);
     }
 
-    function drawPermissions(rowData, row) {
+    function drawUsersCount(rowData, row) {
         const cell = document.createElement("td");
-
-        let permissions_content = ``;
-        for(let data of rowData) {
-            if(data){
-                permissions_content += `<span class="den-primary-badge">${data.name}</span>`;;
-            }
-        }
-        cell.innerHTML = permissions_content;
+        cell.innerHTML = `<span class="den-primary-badge">${rowData}</span>`;
         row.appendChild(cell);
     }
 
-    function setTdContent(rowData, row) {
+    function setTdContent(rowData, row, style = null) {
         const cell = document.createElement("td");
         cell.textContent = rowData;
+        if(style) {
+            cell.style = style;
+        }
         row.appendChild(cell);
     }
 
     function drawActionBtns(rowData, row) {
         const cell = document.createElement("td");
         cell.innerHTML = `
-        <button class="den-close-button" onclick="deleteRole(${rowData.id})">X</button>
-        <button class="den-edit-button" onclick="editRole(${rowData.id})">EDIT</button>
+        <button class="den-close-button" onclick="deleteDepartment(${rowData.id})">X</button>
+        <button class="den-edit-button" onclick="editDepartment(${rowData.id})">EDIT</button>
         `;
         row.appendChild(cell);
     }
@@ -160,59 +192,59 @@
         }
     }
 
-    function deleteRole(id) {
+    function deleteDepartment(id) {
         confirmBefore().then(() => {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'delete', req: {body:{id}}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'delete', req: {body:{id}}}));
         }).catch((error) => {
         });
     }
 
     function showHideModal() {
         const modal = document.querySelector('.den-modal');
-        const form = document.getElementById('den-role-form');
+        const form = document.getElementById('den-department-form');
         form.reset();
         modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
     }
 
-    function createRole() {
-        alert('create role')
+    function createDepartment() {
         try {
-            const form = document.getElementById('den-role-form');
+            const form = document.getElementById('den-department-form');
             // Disable form submit
             form.addEventListener('submit', (e) => e.preventDefault());
 
             const formData = new FormData(form);
 
-            const role = {
+            const body = {
                 name: getInputValue( formData, 'name'),
-                permissions: getInputValue( formData, 'permissions[]', 'multiple')
+                parent_department: getInputValue( formData, 'parent_department'),
             }
 
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', req: {body: role}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'create', req: {body}}));
         } catch (error) {
             alert(error.message.toUpperCase());
         }
     }
 
-    function updateRole(id) {
+    function updateDepartment(id) {
         try {
-            const form = document.getElementById('den-role-form');
+            const form = document.getElementById('den-department-form');
             // Disable form submit
             form.addEventListener('submit', (e) => e.preventDefault());
 
             const formData = new FormData(form);
 
-            const role = {
+            const body = {
+                id,
                 name: getInputValue( formData, 'name'),
-                permissions: getInputValue( formData, 'permissions[]', 'multiple')
+                parent_department: getInputValue( formData, 'parent_department')
             }
 
             window.DENONTEK_SOCKET.send(
                 JSON.stringify({
                     type: "query",
-                    name: "roles",
+                    name: "departments",
                     method: "update",
-                    req: { body: { ...role, id } },
+                    req: { body},
                 })
             );
 
@@ -221,11 +253,11 @@
         }
     }
 
-    function editRole(id) {
+    function editDepartment(id) {
         window.DENONTEK_SOCKET.send(
             JSON.stringify({
                 type: "query",
-                name: "roles",
+                name: "departments",
                 method: "findById",
                 req: { body: { id } },
             })
@@ -233,58 +265,76 @@
     }
 
     function createDepartmentForm() {
-        const form = document.getElementById('den-role-form');
+        const form = document.getElementById('den-department-form');
         const modal = document.querySelector('.den-modal');
         const title = document.querySelector('.den-modal-title');
-        const button = document.querySelector('#den-role-form-btn');
+        const button = document.querySelector('#den-department-form-btn');
 
         form.reset();
         modal.style.visibility = 'visible';
-        title.textContent = 'Create Role';
+        title.textContent = 'Create Department';
         button.textContent = 'Create';
-        button.onclick = createRole;
+        button.onclick = createDepartment;
     }
 
-    function editRoleSetForm(data){
-        const role = data;
-        const form = document.getElementById('den-role-form');
+    function editDepartmentSetForm(data){
+        const form = document.getElementById('den-department-form');
         const modal = document.querySelector('.den-modal');
         const title = document.querySelector('.den-modal-title');
-        const button = document.querySelector('#den-role-form-btn');
+        const button = document.querySelector('#den-department-form-btn');
 
         form.reset();
         modal.style.visibility = 'visible';
-        title.textContent = 'Edit Role';
+        title.textContent = 'Edit Department';
         button.textContent = 'Update';
-        button.onclick = () => updateRole(role.id);
+        button.onclick = () => updateDepartment(data.id);
 
-        form.elements['name'].value = role.name;
-        
-        let selectElement = form.elements['permissions[]'];
+        form.elements['name'].value = data.name;
+        form.elements['parent_department'].value = data.parent_id;
+    }
 
-        // Iterate through each option in the select element
-        for (let option of selectElement.options) {
-            if (role.permissions.includes(+ option.value)) {
-                option.selected = true;
+    function nestCategories(categories) {
+        const categoryMap = {};
+
+        // First pass to create entries for each category in the map.
+        categories.forEach(category => {
+            categoryMap[category.id] = { ...category, subcategories: [] };
+        });
+
+        // Second pass to populate the subcategories.
+        const result = [];
+        categories.forEach(category => {
+            if (category.parent_id === null) {
+            result.push(categoryMap[category.id]);
+            } else {
+            if (categoryMap[category.parent_id]) {
+                categoryMap[category.parent_id].subcategories.push(categoryMap[category.id]);
             }
-        }
+            }
+        });
+
+        return result;
     }
 
-    function drawPermissionsInSelectTag(permissions = []){
-        for(const permission of permissions) {
-            addOption(permission);
+    function drawParentDepartments(departments = []){
+        addOption({name: 'Select a Department', id: ''});
+
+        for(const department of departments) {
+            addOption(department);
         }
 
     }
 
-    function addOption(permission) {
-        const select = document.getElementById('permissions');
+    function addOption(department) {
+        const select = document.getElementById('parent_departments');
         const option = document.createElement('option');
         
-        option.text = permission.name;
-        option.value = permission.id;
+        option.text = department.name;
+        option.value = department.id;
 
         select.appendChild(option);
     }
+
+
 
 </script>
