@@ -188,6 +188,12 @@
                 </svg>
                 <span>Departments</span>
               </a>
+              <a href="javascript:void(0)" onclick="requestHtml('employee_transfer')" data-permission="ROLES_AND_PERMISSIONS">
+                <svg>
+                  <use xlink:href="#users"></use>
+                </svg>
+                <span>Employee Transfer</span>
+              </a>
             </li>
             <li class="menu-heading">
               <h3>User Managent</h3>
@@ -198,6 +204,12 @@
                   <use xlink:href="#collection"></use>
                 </svg>
                 <span>Timetables</span>
+              </a>
+              <a href="javascript:void(0)" onclick="requestHtml('shifts')" data-permission="TIMETABLE_MANAGEMENT">
+                <svg>
+                  <use xlink:href="#collection"></use>
+                </svg>
+                <span>Shifts</span>
               </a>
             </li>
             <li class="menu-heading">
@@ -237,7 +249,7 @@
             </li>
             <li>
               <div class="switch">
-                <input type="checkbox" id="mode" checked>
+                <input type="checkbox" id="mode" checked style="display: none;">
                 <label for="mode">
                   <span></span>
                   <span>Dark</span>
@@ -532,7 +544,7 @@
       <p id="confirm-dialog-message">This is your message.</p>
       <div class="buttons">
         <button id="confirm-delete-btn">Delete</button>
-        <button id="confirm-cancel-btn">Cancel</button>
+        <button class="den-close-button" id="confirm-cancel-btn">Cancel</button>
     </div>
   </div>
 </div>

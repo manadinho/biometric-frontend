@@ -1,0 +1,465 @@
+<div class="container">
+    <div class="den-page-header">
+        <div class="den-page-title">
+            <h2>Shifts</h2>
+            <button class="den-btn den-create-btn" onclick="createShiftForm()">+</button>
+        </div>
+        <div>
+            <input class="den-input" type="search" placeholder="Search" id="searchInput">
+        </div>
+    </div>
+    
+    <div>
+        <table width="100" id="den-shifts-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th width="45%">Action</th>
+                </tr>
+            </thead>
+            <tbody id="den-shifts-table-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MODAL SECTION -->
+<div class="den-modal" style="visibility: hidden;">
+    <div class="den-modal-content modal-medium">
+        
+    </div>
+</div>
+
+<div class="den-modal den-modal-large" style="visibility: hidden;">
+    <div class="den-modal-content modal-large">
+        
+    </div>
+</div>
+
+
+
+<script>
+    // Add event listener to the search field to call the searchTable function on every keyup event
+    var searchInput = document.getElementById('searchInput')
+    searchInput.addEventListener('keyup', () => searchTable('den-shifts-table', searchInput));
+
+    var TIMETABLES = [];
+
+    //QUERY ALL
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+
+
+    // Event listener for receiving messages from the server
+    window.DENONTEK_SOCKET.onmessage = (event) => {
+      const parsedEventData = JSON.parse(event.data);
+
+      if(parsedEventData.type === `timetables-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            TIMETABLES = parsedEventData.data.data
+        }
+      }
+
+      if(parsedEventData.type === `shifts-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            drawTable(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'create') {
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'delete') {
+            resetTable();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'findById'){
+            editShiftSetForm(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'saveTimetable'){
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+        }
+
+        if(parsedEventData.data.method === 'update') {
+            resetTable();
+            showHideModal();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+        }
+        
+      }
+
+      if(parsedEventData.type == 'html') {
+        setContent(parsedEventData.data);
+      }
+
+    };
+
+    function drawTable(data) {
+        for (var i = 0; i < data.length; i++) {
+            drawRow(data[i]);
+        }
+    }
+
+    function drawRow(rowData) {
+        const table = document.getElementById("den-shifts-table-body"); 
+        const row = document.createElement("tr"); 
+        table.appendChild(row); 
+
+        setTdContent(rowData, row);
+        drawActionBtns(rowData, row);
+    }
+
+    function setTdContent(rowData, row) {
+        const cell = document.createElement("td");
+        let is_timetable_set = false;
+
+        for(const day in rowData.timetables) {
+            if(rowData.timetables[day]) {
+                is_timetable_set = true;
+                break;
+            }
+        }
+
+        if(is_timetable_set) {
+            cell.innerHTML = `<div style="display:flex; align-items: center"><div class="circle-tick"></div> &nbsp; ${rowData.name}</div> ` ;
+        } else {
+            cell.innerHTML = rowData.name;
+        }
+
+        row.appendChild(cell);
+    }
+
+    function drawActionBtns(rowData, row) {
+        const cell = document.createElement("td");
+        cell.innerHTML = `
+        <button class="den-edit-button" onclick='viewTimetable(${JSON.stringify(rowData)})'>VIEW TIMETABLE</button>
+        <button class="den-edit-button" onclick='addTimetable(${JSON.stringify(rowData)})'>ADD TIMETABLE</button>
+        <button class="den-edit-button" onclick="editShift(${rowData.id})">EDIT</button>
+        <button class="den-close-button" onclick="deleteShift(${rowData.id})">X</button>
+
+        `;
+        row.appendChild(cell);
+    }
+
+    function resetTable() {
+        const tableBody = document.querySelector("#den-shifts-table-body");
+
+        // Remove all rows in the table body except the first row (header)
+        while (tableBody.lastElementChild) {
+            tableBody.removeChild(tableBody.lastElementChild);
+        }
+    }
+
+    function deleteShift(id) {
+        confirmBefore().then(() => {
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'delete', req: {body:{id}}}));
+        }).catch((error) => {
+        });
+    }
+
+    function showHideModal() {
+        const modal = document.querySelector('.den-modal');
+        const form = document.getElementById('den-shift-form');
+        if(form) form.reset();
+        modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
+        
+    }
+
+    function hideModal() {
+        const modal = document.querySelector('.den-modal');
+        const modal2 = document.querySelector('.den-modal-large');
+
+        modal.style.visibility = 'hidden';
+        modal2.style.visibility = 'hidden';
+
+    }
+
+    function createShift() {
+        try {
+            const form = document.getElementById('den-shift-form');
+            // Disable form submit
+            form.addEventListener('submit', (e) => e.preventDefault());
+
+            const formData = new FormData(form);
+
+            const body = {
+                name: getInputValue( formData, 'name')
+            }
+
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'create', req: { body }}));
+        } catch (error) {
+            alert(error.message.toUpperCase());
+        }
+    }
+
+    function updateShift(id) {
+        try {
+            const form = document.getElementById('den-shift-form');
+            // Disable form submit
+            form.addEventListener('submit', (e) => e.preventDefault());
+
+            const formData = new FormData(form);
+
+            const body = {
+                name: getInputValue( formData, 'name'),
+            }
+
+            window.DENONTEK_SOCKET.send(
+                JSON.stringify({
+                    type: "query",
+                    name: "shifts",
+                    method: "update",
+                    req: { body: { ...body, id } },
+                })
+            );
+
+        } catch (error) {
+            alert(error.message.toUpperCase());
+        }
+    }
+
+    function editShift(id) {
+        window.DENONTEK_SOCKET.send(
+            JSON.stringify({
+                type: "query",
+                name: "shifts",
+                method: "findById",
+                req: { body: { id } },
+            })
+        );
+    }
+
+    function createShiftForm() {
+        const form_content = generateFormContent();
+        document.querySelector('.den-modal-content').innerHTML = form_content;
+        const form = document.getElementById('den-shift-form');
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('#den-shift-form-btn');
+
+        form.reset();
+        modal.style.visibility = 'visible';
+        title.textContent = 'Create Shift';
+        button.textContent = 'Create';
+        button.onclick = createShift;
+    }
+
+    function generateFormContent() {
+        return `
+        <h2 class="den-modal-title"></h2>
+
+        <form id="den-shift-form">
+            <div class="den-form-group">
+                <label for="name">Name</label>
+                <input id="name" class="den-input" type="name" name="name" value="" required autofocus>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-button-group">
+                <button class="den-btn" id="den-shift-form-btn">Create</button>
+            </div>
+        </form>
+
+        <button class="den-close-button" onclick="showHideModal()">X</button>
+        `;
+    }
+
+    function editShiftSetForm(data){
+        const form_content = generateFormContent();
+        document.querySelector('.den-modal-content').innerHTML = form_content;
+        const form = document.getElementById('den-shift-form');
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('#den-shift-form-btn');
+
+        form.reset();
+        modal.style.visibility = 'visible';
+        title.textContent = 'Edit Shift';
+        button.textContent = 'Update';
+        button.onclick = () => updateShift(data.id);
+
+        form.elements['name'].value = data.name;
+    }
+
+    function viewTimetable(shift) {
+        const viewTimeTableContent = generateViewTimetableContent(shift);
+        document.querySelector('.modal-large').innerHTML = viewTimeTableContent;
+        const modal = document.querySelector('.den-modal-large');
+        const title = document.querySelector('.den-modal-title');
+
+        modal.style.visibility = 'visible';
+        title.textContent = 'Details';
+    }
+
+    function generateViewTimetableContent(shift) {
+        let table_body = ``;
+        for(const day in shift.timetables){ 
+            const timetable_id = shift.timetables[day];
+            const timetable = TIMETABLES.find(timetable => timetable.id == timetable_id);
+            const start = timetable ? + timetable.on_time.split(':')[0] : null;
+            const end = timetable ? + timetable.off_time.split(':')[0] : null;
+
+            table_body += `<tr>`;
+            table_body += `<td> ${day}</td>`;
+            for(let i = 0; i < 24; i++) {
+                if(!start) {
+                    table_body += `<td class="timetable-red"></td>`;
+                    continue;
+                }
+                if(i >= start && i <= end) {
+                    table_body += `<td class="timetable-highlight"></td>`;
+                    continue;
+                }
+                table_body += `<td></td>`;
+            }
+            table_body += `</tr>`;
+        }
+
+        return `
+        <div>
+            <h2 class="den-modal-title"></h2>
+            <table width="100" >
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>0</th>
+                        <th>1</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>5</th>
+                        <th>6</th>
+                        <th>7</th>
+                        <th>8</th>
+                        <th>9</th>
+                        <th>10</th>
+                        <th>11</th>
+                        <th>12</th>
+                        <th>13</th>
+                        <th>14</th>
+                        <th>15</th>
+                        <th>16</th>
+                        <th>17</th>
+                        <th>18</th>
+                        <th>19</th>
+                        <th>20</th>
+                        <th>21</th>
+                        <th>22</th>
+                        <th>23</th>
+                    </tr>
+                </thead>
+                <tbody >
+                    ${table_body}
+                </tbody>
+            </table> 
+        </div>
+        
+        <button class="den-close-button" onclick="hideModal()">X</button>
+        `;
+    }
+
+    function addTimetable(shift) {
+        const addTimeTableContent = generateAddTimetableContent(shift);
+        document.querySelector('.den-modal-content').innerHTML = addTimeTableContent;
+        timetableChange();
+        const modal = document.querySelector('.den-modal');
+        const title = document.querySelector('.den-modal-title');
+        const button = document.querySelector('#den-save-shift-timetable-btn');
+
+        modal.style.visibility = 'visible';
+        title.textContent = 'Add Timetable';
+        button.onclick = () => saveTimeTable(shift);
+    }
+
+    function generateAddTimetableContent(shift) {
+        let table_body = ``;
+        for(const day in shift.timetables){
+            table_body += `<tr>`;
+            table_body += `<td> ${day}</td>`;
+            table_body += `<td> ${drawTimetablesSelectTag(shift.timetables[day])}</td>`;
+            table_body += `</tr>`;
+        }
+
+        return `
+        <div>
+            <h2 class="den-modal-title"></h2>
+            <table width="100" >
+                <thead>
+                    <tr>
+                        <th width="50%">Name</th>
+                        <th width="50%">Timetable</th>
+                    </tr>
+                </thead>
+                <tbody >
+                    ${table_body}
+                </tbody>
+            </table>
+            <div class="den-button-group">
+                <button class="den-btn" id="den-save-shift-timetable-btn">Save</button>
+            </div>    
+        </div>
+        
+        <button class="den-close-button" onclick="showHideModal()">X</button>
+        `;
+    }
+
+    function drawTimetablesSelectTag(selected_timetable_id){
+        let select_content = `<select name="timetable[]" onchange="timetableChange()" class="den-select">`;
+        
+        select_content += `<option value="">Select a Timetable</option>`;
+
+        for(const timetable of TIMETABLES) {
+            if(timetable.id == selected_timetable_id) {
+                select_content += `<option value="${timetable.id}" selected>${timetable.name}</option>`;
+                continue;
+            }
+
+            select_content += `<option value="${timetable.id}">${timetable.name}</option>`;
+        }
+
+        select_content+= `</select>`;
+
+        return select_content;
+
+    }
+
+    function saveTimeTable(shift) {
+        const timetables_by_days = document.querySelectorAll('select[name="timetable[]"]');
+        const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+        const timetables = {};
+        let iterator = 0;
+        for(const timetable_by_day of timetables_by_days) {
+            timetables[days[iterator++]] = timetable_by_day.value || null;
+        }
+
+        const body = {
+            timetables,
+            id: shift.id
+        }
+
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'saveTimetable', req: { body }}));
+    }
+
+    function timetableChange() {
+        const timetables_by_days = document.querySelectorAll('select[name="timetable[]"]');
+        for(const timetable_by_day of timetables_by_days) {
+            if(timetable_by_day.value === '') {
+                timetable_by_day.style.border = '1px solid red';
+            }
+
+            if(timetable_by_day.value !== '') {
+                timetable_by_day.style.border = '1px solid green';
+            }
+
+            if(timetable_by_day.value === 'off') {
+                timetable_by_day.style.border = '1px solid orange';
+            }
+        }
+    }
+
+</script>

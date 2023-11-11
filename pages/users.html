@@ -185,7 +185,7 @@
     }
 
     function drawRoles(roles = []){
-        addOption({name: 'Select a Role', id: ''});
+        addOption({role_name: 'Select a Role', id: ''});
 
         for(const role of roles) {
             addOption(role);
@@ -197,7 +197,7 @@
         const select = document.getElementById('roles');
         const option = document.createElement('option');
         
-        option.text = role.name;
+        option.text = role.role_name;
         option.value = role.id;
 
         select.appendChild(option);

@@ -12,7 +12,7 @@
   --page-content-txtColor: #171616;
   --page-content-blockColor: #fff;
   --white: #fff;
-  --black: #333;
+  --black: var(--page-header-bgColor);
   --blue: #be1104;
   --red: #ec1848;
   --border-radius: 4px;
@@ -47,15 +47,6 @@ button {
   cursor: pointer;
 }
 
-input {
-  -webkit-appearance: none;
-}
-
-[type="checkbox"] {
-  position: absolute;
-  left: -9999px;
-}
-
 label {
   cursor: pointer;
 }
@@ -63,6 +54,7 @@ label {
 button,
 input {
   border: none;
+  box-shadow: 3px 3px 14px -2px gray;
 }
 
 svg {
@@ -565,7 +557,8 @@ table {
 
 /* Style the table header (table head) */
 th {
-    background-color: #f2f2f2;
+    background-color: var(--page-header-bgColor);
+    color: #fff;
     text-align: left;
     padding: 10px;
 }
@@ -592,9 +585,10 @@ tr:hover {
 }
 
 .den-btn{
-    background-color: #171616;
+    background-color: var(--page-header-bgColor);
     color: #fff;
     padding: 10px;
+    border-radius: 4px;
 }
 
 .den-page-header{
@@ -614,6 +608,7 @@ tr:hover {
     justify-content: center;
     z-index: 50;
     backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.5);
 }
 
 .den-modal-content {
@@ -621,17 +616,25 @@ tr:hover {
     padding: 16px;
     border-radius: 8px;
     width: 400px; /* Adjust the width as needed */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 3px 3px 14px -2px gray;
 }
 
 .modal-medium {
     width: 600px !important;
 }
 
+.modal-large {
+    width: 1000px !important;
+}
+
 .den-modal-title {
+    background-color: var(--page-header-bgColor);
     font-size: 1.5rem;
     font-weight: bold;
     margin-bottom: 1rem;
+    color: #fff;
+    padding: 5px;
+    border-radius: 4px;
 }
 
 .den-form-group {
@@ -668,13 +671,14 @@ tr:hover {
 }
 
 .den-close-button {
-    background-color: #555;
-    color: #fff;
+    background-color: #fff;
+    color: var(--page-header-bgColor);
     font-weight: bold;
     border: none;
-    border-radius: 50%;
+    border-radius: 4px;
     cursor: pointer;
     padding: 10px 13px;
+    box-shadow: 3px 3px 14px -2px gray;
 }
 
 .den-edit-button {
@@ -684,8 +688,9 @@ tr:hover {
   border-radius: 4px;
   cursor: pointer;
     font-weight: bold;
-  background-color: #333;
+  background-color: var(--page-header-bgColor);
   color: #fff;
+  box-shadow: 3px 3px 14px -2px gray;
 }
 
 .den-confirm-dialog {
@@ -729,12 +734,7 @@ tr:hover {
 }
 
 .den-confirm-dialog .buttons #confirm-delete-btn {
-    background-color: #333;
-    color: #fff;
-}
-
-.den-confirm-dialog .buttons #confirm-cancel-btn {
-    background-color: #555;
+    background-color: var(--page-header-bgColor);
     color: #fff;
 }
 
@@ -751,13 +751,14 @@ tr:hover {
   visibility: hidden;
 }
 .den-primary-badge{
-  background-color: #be1104;
-  color: #fff;
+  background-color: #fff;
+  color: #be1104;
   padding: 5px 10px;
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: bold;
   margin-left: 5px;
+  box-shadow: 3px 3px 14px -2px gray;
 }
 
 select[multiple] {
@@ -782,17 +783,86 @@ select[multiple] {
 
 .den-create-btn{
   margin-left: 10px;
-  border-radius: 50%;
-  padding: 10px 13px;
 }
 
-.category {
-  font-size: 24px;
+.parent-dep-heading {
+  display: inline-flex;
+  align-items: center;
+  font-size: 16px;
   font-weight: bold;
   margin-top: 10px;
 }
-.subcategory {
+.child-dep-heading {
+  display: grid;
   margin-left: 20px;
-  font-size: 18px;
+  font-size: 15px;
   list-style-type: none; /* Removes bullet points */
+}
+
+.child-dep-link{
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.child-dep-link-active {
+  background: #242e42;
+  color: #fff;
+}
+.parent-dep-heading-modal {
+  font-size: 16px;
+  font-weight: bold;
+  margin-top: 10px;
+}
+.child-dep-heading-modal {
+  margin-left: 20px;
+  font-size: 15px;
+  list-style-type: none; /* Removes bullet points */
+}
+
+.child-dep-lin-modalk{
+  cursor: pointer;
+}
+
+.child-dep-link-active-modal {
+  background: #242e42;
+  color: #fff;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  color: var(--white);
+  background: var(--red);
+}
+
+.circle-tick {
+  width: 15px;
+  height: 15px;
+  background-color: green;
+  border-radius: 50%; /* This makes it a circle */
+  position: relative;
+}
+
+.circle-tick::after {
+  content: '✔'; /* Unicode character for a tick mark */
+  color: white;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+}
+
+.timetable-highlight {
+  background-color: #ffff99;
+}
+
+.timetable-red{
+  background-color: #ff9999;
 }
