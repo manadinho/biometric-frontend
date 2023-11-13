@@ -209,7 +209,13 @@
                 <svg>
                   <use xlink:href="#collection"></use>
                 </svg>
-                <span>Shifts</span>
+                <span>Shifts Managent</span>
+              </a>
+              <a href="javascript:void(0)" onclick="requestHtml('employee_schedule')" data-permission="TIMETABLE_MANAGEMENT">
+                <svg>
+                  <use xlink:href="#collection"></use>
+                </svg>
+                <span>Employee Schedule</span>
               </a>
             </li>
             <li class="menu-heading">
@@ -296,6 +302,7 @@
           </footer>
       </section>
     </div>
+    <div id="toast" class="toast">✅ This is a toast message!</div>
     
     <script>
       window.DENONTEK_SOCKET = new WebSocket('ws://localhost:1000');
@@ -530,6 +537,53 @@
           // Show or hide the row based on the search result
           rows[i].style.display = found ? '' : 'none';
         }
+      }
+
+      function toast(message = 'This is a toast message!', type = 'success', duration = 5000) {
+          const toast = document.getElementById("toast");
+          let content = ''
+          if(type === 'success'){
+            content += `✅ ${message}`;
+          } else if(type === 'error'){
+            content += `❌ ${message}`;
+          } else if(type === 'warning'){
+            content += `⚠️ ${message}`;
+          } else if(type === 'info'){
+            content += `ℹ️ ${message}`;
+          } else{
+            content += `${message}`;
+          }
+
+          toast.innerHTML = content;
+
+          toast.classList.add("toast-show");
+          setTimeout(() =>  toast.classList.remove("toast-show"), duration);
+      }
+
+      function spinnerStart(element) {
+          const content = `
+          <div class="spinner-parent" style="display:flex; justify-content: center; align-items: center">
+            <div class="spinner"></div>
+          </div>
+          `;
+
+          element.innerHTML = content;
+      }
+
+      function spinnerStop(element) {
+
+          const spinner = element.querySelector('.spinner');
+          if(spinner) spinner.parentNode.removeChild(spinner);
+      }
+
+      function formatDate(given_date) {
+          const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+          const date = new Date(given_date);
+          const day = String(date.getDate()).padStart(2, '0');
+          const month = months[date.getMonth()];
+          const year = date.getFullYear();
+
+          return `${day} - ${month} - ${year}`;
       }
 
     </script>

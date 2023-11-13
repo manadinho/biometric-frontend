@@ -1,0 +1,585 @@
+<!-- CPIED FROM EMPLOYEE TRANSFER -->
+<div class="container">
+    <div class="den-page-header">
+        <div class="den-page-title">
+            <h2>Employee Schedule</h2>
+        </div>
+    </div>
+    
+    <div>
+        <div style="display: flex;">
+            <div id="den-employee-transfer-left-section" style="width: 50%; box-sizing: border-box; padding: 10px; border-right: solid 1px #000;">
+
+            </div>
+            <div style="width: 50%; box-sizing: border-box; padding: 10px; overflow-x: scroll;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <button class="den-btn" onclick="transferModal()">Arrange Shifts</button><br>
+                    <div style="width: 50%;">
+                        <input class="den-input" type="search" placeholder="Search" id="searchInput">
+                    </div>
+                </div>
+                
+                <table width="100" id="den-employee-transfer-table">
+                    <thead>
+                        <tr>
+                            <th width="10%">
+                                <input type="checkbox" id="all_checkbox" name="all_checkbox" value="all_checkbox" onclick="checkUncheckAll(this)">
+                            </th>
+                            <th>Id</th>
+                            <th>Name</th>
+                            <th>Timetables</th>
+                        </tr>
+                    </thead>
+                    <tbody id="den-employee-transfer-table-body"></tbody>
+                </table>
+            </div>
+        </div>          
+    </div>
+</div>
+
+<!-- MODAL SECTION -->
+<div class="den-modal den-modal-first" style="visibility: hidden;">
+    <div class="den-modal-content modal-large">
+        <h2 class="den-modal-title">Employee Schedule</h2>
+        <div id="employee-schedule-select-tag-section" style="padding: 15px;"></div>
+        <div id="employee-schedule-timetable-draw-section"></div>
+        <div class="den-button-group">
+            <button class="den-btn" onclick="arrangeShift()">Done</button>
+        </div>
+        <button class="den-close-button" onclick="showHideModal()">X</button>
+    </div>
+</div>
+
+<!--SECOND MODAL SECTION -->
+<div class="den-modal den-modal-second" style="visibility: hidden;">
+    <div class="den-modal-content modal-large den-modal-content-second">
+        <h2 class="den-modal-title">Employee Schedule</h2>
+        <div id="modal-shift-detail-section"></div>
+        <button class="den-close-button" onclick="showHideModal('den-modal-second')">X</button>
+    </div>
+</div>
+
+
+
+<script>
+    // Add event listener to the search field to call the searchTable function on every keyup event
+    var searchInput = document.getElementById('searchInput')
+    searchInput.addEventListener('keyup', () => searchTable('den-employee-transfer-table', searchInput));
+
+    //QUERY ALL ROLES
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+    var SHIFTS = [];
+    var TIMETABLES = [];
+    var USERS = [];
+
+
+    // Event listener for receiving messages from the server
+    window.DENONTEK_SOCKET.onmessage = (event) => {
+      const parsedEventData = JSON.parse(event.data);
+
+      if(parsedEventData.type === `timetables-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            TIMETABLES = parsedEventData.data.data
+        }
+      }
+
+      if(parsedEventData.type === `shifts-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            SHIFTS = parsedEventData.data.data;
+            drawShiftsSelectTag()
+        }
+
+
+        if(parsedEventData.data.method === 'employeeSchedule') {
+           toast(parsedEventData.data.message, 'success');
+           resetPage();
+        }
+
+        if(parsedEventData.data.method === 'getSelectedUsersShift') {
+            USERS = parsedEventData.data.data;
+            USERS = USERS.map((user) => {
+                user.shift = SHIFTS.find(shift => shift.id == user.shift_id);
+                return user;
+            });
+        }
+
+        if(parsedEventData.data.method === 'getShiftByUserId') {
+            const cell = document.getElementById(parsedEventData.data.data.cell_id);
+            const shifts = parsedEventData.data.data.shifts.map((shift) => {
+                shift.shift = SHIFTS.find(s => s.id == shift.shift_id);
+                return shift;
+            });
+
+            let content = '<div style="display:flex">';
+            for(const shift of shifts) {
+                content += `<span class="den-secondary-badge user-shift-badge" style="width:250px">
+                        🕒 &nbsp; ${shift.shift.name}
+                        <br>
+                        ${formatDate(shift.start_date)} to ${formatDate(shift.end_date)}
+                        <br>
+                        <span style="display:flex">
+                            <span class="den-primary-badge user-shift-badge-btn" onclick='showShiftDetails(${JSON.stringify(shift)})'>view</span>
+                            <span class="den-primary-badge user-shift-badge-btn">edit</span>
+                            <span class="den-primary-badge user-shift-badge-btn" onclick="deleteUserShift(${shift.id}, this)">delete</span>
+                        </span>
+                    </span>
+                    <br>`;
+            }
+            content += '</div>';
+            spinnerStop(cell);
+
+            cell.innerHTML = content;
+        }
+      }
+
+      if(parsedEventData.type === `departments-query-response`) {
+        if(parsedEventData.data.method === 'all') {
+            drawDepartments(parsedEventData.data.data);
+            drawDepartmentsInModal(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'getUsersByDepId') {
+            spinnerStop(document.querySelector("#den-employee-transfer-table-body"));
+            drawTable(parsedEventData.data.data); 
+        }
+
+        if(parsedEventData.data.method === 'transferUsers') {
+            resetPage();
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+        }
+        
+      }
+
+      if(parsedEventData.type == 'html') {
+        setContent(parsedEventData.data);
+      }
+
+    };
+
+    function resetPage(){
+        showHideModal();
+        document.getElementById('all_checkbox').checked = false;
+        document.querySelector('select[name="shift"]').value = '';
+        document.querySelector('input[name="start_date"]').value = '';
+        document.querySelector('input[name="end_date"]').value = '';
+
+        const tableBody = document.querySelector("#den-employee-transfer-table-body");
+
+        // Remove all rows in the table body except the first row (header)
+        while (tableBody.lastElementChild) {
+            tableBody.removeChild(tableBody.lastElementChild);
+        }
+    }
+
+    function drawDepartments(data) {
+        const result = nestCategories(data);
+        for (var i = 0; i < result.length; i++) {
+            let departments = ` <div>`;
+
+            departments += `<div class="parent-dep-heading" onclick="getUsers(this, ${result[i].id})">${result[i].name} <span class="badge" style="margin-left: 5px">${result[i].user_count}</span></div>
+            <ul class="child-dep-heading">
+            `;
+
+            if(result[i].subcategories.length > 0) {
+                for (var j = 0; j < result[i].subcategories.length; j++) {
+                    departments += `<li class="child-dep-link" onclick="getUsers(this, ${result[i].subcategories[j].id})"> - ${result[i].subcategories[j].name} <span class="badge" style="margin-left: 5px">${result[i].subcategories[j].user_count}</span></li>`;
+                }
+            }
+
+            departments += `</ul></div>`;
+            let leftSection = document.querySelector('#den-employee-transfer-left-section');
+            leftSection.innerHTML += departments;
+        }
+
+    }
+
+    function drawDepartmentsInModal(data) {
+        const result = nestCategories(data);
+        for (var i = 0; i < result.length; i++) {
+            let departments = ` <div>`;
+
+            departments += `<div class="parent-dep-heading-modal" data-depid="${result[i].id}" onclick="selectTransferDep(this)">${result[i].name}</div>
+            <ul class="child-dep-heading-modal">
+            `;
+
+            if(result[i].subcategories.length > 0) {
+                for (var j = 0; j < result[i].subcategories.length; j++) {
+                    departments += `<li class="child-dep-link-modal" data-depid="${result[i].subcategories[j].id}" onclick="selectTransferDep(this)"> - ${result[i].subcategories[j].name}</li>`;
+                }
+            }
+
+            departments += `</ul></div>`;
+            let leftSection = document.querySelector('#den-employee-transfer-left-section-modal');
+            leftSection.innerHTML += departments;
+        }
+
+    }
+
+    function drawTable(data) {
+        for (var i = 0; i < data.length; i++) {
+            drawRow(data[i]);
+        }
+    }
+
+    function drawRow(rowData) {
+        const table = document.getElementById("den-employee-transfer-table-body"); 
+        const row = document.createElement("tr"); 
+        table.appendChild(row); 
+
+        drawCheckBox(rowData.id, row)
+        setTdContent(rowData.id, row)
+        setTdContent(rowData.name, row)
+        drawShiftColumn(rowData, row)
+        // setTdContent(rowData.email, row)
+    }
+
+    function drawShiftColumn(rowData, row) {
+        const cell = document.createElement("td");
+        cell.id = `shift_td_${rowData.id}`;
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'getShiftByUserId', req: {body:{user_id: rowData.id, cell_id: cell.id}}}));
+        spinnerStart(cell);
+        row.appendChild(cell);
+
+    }
+
+    function setTdContent(rowData, row) {
+        const cell = document.createElement("td");
+        cell.textContent = rowData;
+        row.appendChild(cell);
+    }
+
+    function drawCheckBox(id, row) {
+        const cell = document.createElement("td");
+        cell.innerHTML = `<input type="checkbox" onclick="checkAllCheckboxes()" name="user_id[]" value="${id}">`;
+        row.appendChild(cell);
+    }
+
+    function drawUsersCount(rowData, row) {
+        const cell = document.createElement("td");
+        cell.innerHTML = `<span class="den-primary-badge">${rowData}</span>`;
+        row.appendChild(cell);
+    }
+
+    function deleteDepartment(id) {
+        confirmBefore().then(() => {
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'delete', req: {body:{id}}}));
+        }).catch((error) => {
+        });
+    }
+
+    function nestCategories(categories) {
+        const categoryMap = {};
+
+        // First pass to create entries for each category in the map.
+        categories.forEach(category => {
+            categoryMap[category.id] = { ...category, subcategories: [] };
+        });
+
+        // Second pass to populate the subcategories.
+        const result = [];
+        categories.forEach(category => {
+            if (category.parent_id === null) {
+            result.push(categoryMap[category.id]);
+            } else {
+            if (categoryMap[category.parent_id]) {
+                categoryMap[category.parent_id].subcategories.push(categoryMap[category.id]);
+            }
+            }
+        });
+
+        return result;
+    }
+
+    function getUsers(element, id) {
+
+        document.getElementById('all_checkbox').checked = false;
+
+        const linkes =  document.querySelector('.child-dep-link-active');
+
+        if(linkes) {
+            linkes.classList.remove('child-dep-link-active');
+            linkes.classList.add('child-dep-link');
+        }
+        
+        element.classList.add('child-dep-link-active');
+        resetTable();
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', req: {body:{id}}}));
+        spinnerStart(document.querySelector("#den-employee-transfer-table-body"));
+    }
+
+    function resetTable() {
+        const tableBody = document.querySelector("#den-employee-transfer-table-body");
+
+        // Remove all rows in the table body except the first row (header)
+        while (tableBody.lastElementChild) {
+            tableBody.removeChild(tableBody.lastElementChild);
+        }
+    }
+
+    function checkUncheckAll(element) {
+        const checkboxes = document.getElementsByName('user_id[]');
+        if(element.checked) {
+            for (let i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].type == 'checkbox') {
+                    checkboxes[i].checked = true;
+                }
+            }
+        } else {
+            for (let i = 0; i < checkboxes.length; i++) {
+                if (checkboxes[i].type == 'checkbox') {
+                    checkboxes[i].checked = false;
+                }
+            }
+        }
+    }
+
+    function checkAllCheckboxes() {
+        const checkboxes = document.getElementsByName('user_id[]');
+        let allChecked = true;
+        checkboxes.forEach(checkbox => {
+            if(!checkbox.checked) {
+                document.getElementById('all_checkbox').checked = false;
+                allChecked = false;
+                return;
+            }
+        });
+
+        if(allChecked) document.getElementById('all_checkbox').checked = true;
+    }
+
+    function transferModal() {
+        const checkboxes = document.getElementsByName('user_id[]');
+        let users = [];
+        checkboxes.forEach(checkbox => {
+            if(checkbox.checked) {
+                users.push(checkbox.value);
+            }
+        });
+
+        if(!users.length) {
+            toast('Please select users', 'warning');
+            return;
+        }
+
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'getSelectedUsersShift', req: {body:{users}}}));
+
+        const modal = document.querySelector('.den-modal-first');
+        modal.style.visibility = 'visible';
+    }
+
+    function showHideModal(id = 'den-modal-first') {
+        USERS = [];
+        const modal = document.querySelector(`.${id}`);
+        modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
+    }
+
+    function selectTransferDep(element) {
+        const linkes =  document.querySelector('.child-dep-link-active-modal');
+
+        if(linkes) {
+            linkes.classList.remove('child-dep-link-active-modal');
+            linkes.classList.add('child-dep-link-modal');
+        }
+        
+        element.classList.add('child-dep-link-active-modal');
+    }
+
+    function drawShiftsSelectTag(){
+        let select_content = `
+        <label for="shift">Select Shift</label>
+        <select name="shift" onchange="shiftChange()" class="den-select">`;
+        
+        select_content += `<option value="">Select a Shift</option>`;
+
+        for(const shift of SHIFTS) {
+            select_content += `<option value="${shift.id}">${shift.name}</option>`;
+        }
+
+        select_content+= `</select>`;
+
+        select_content += `<div class="den-form-parent-group">
+                <div class="left">
+                    <div class="den-form-group">
+                        <label for="start_date">Start Date</label>
+                        <input id="start_date" class="den-input" type="date" name="start_date" onchange="dateChange(this)" value="" autofocus>
+                    </div>
+                </div>
+
+                <div class="right">
+                    <div class="den-form-group">
+                        <label for="end_date">End Date</label>
+                        <input id="end_date" class="den-input" type="date" name="end_date" value="" onchange="dateChange(this)" autofocus>
+                    </div>
+                </div>
+            </div>`;
+
+        document.querySelector('#employee-schedule-select-tag-section').innerHTML = select_content;
+    }
+
+    function shiftChange() {
+        const shiftId = document.querySelector('select[name="shift"]').value;
+        const shift = SHIFTS.find(shift => shift.id == shiftId);
+        
+        if(!shift) {
+            toast('Please select a shift', 'warning');
+            return;
+        }
+
+        document.querySelector('#employee-schedule-timetable-draw-section').innerHTML = generateViewTimetableContent(shift);
+    }
+
+    function generateViewTimetableContent(shift) {
+        let table_body = ``;
+        for(const day in shift.timetables){ 
+            const timetable_id = shift.timetables[day];
+            const timetable = TIMETABLES.find(timetable => timetable.id == timetable_id);
+            const start = timetable ? + timetable.on_time.split(':')[0] : null;
+            const end = timetable ? + timetable.off_time.split(':')[0] : null;
+
+            table_body += `<tr>`;
+            table_body += `<td> ${day}</td>`;
+            for(let i = 0; i < 24; i++) {
+                if(!start) {
+                    table_body += `<td class="timetable-red"></td>`;
+                    continue;
+                }
+                if(i >= start && i <= end) {
+                    table_body += `<td class="timetable-highlight"></td>`;
+                    continue;
+                }
+                table_body += `<td></td>`;
+            }
+            table_body += `</tr>`;
+        }
+
+        return `
+        <div>
+            <table width="100" >
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>0</th>
+                        <th>1</th>
+                        <th>2</th>
+                        <th>3</th>
+                        <th>4</th>
+                        <th>5</th>
+                        <th>6</th>
+                        <th>7</th>
+                        <th>8</th>
+                        <th>9</th>
+                        <th>10</th>
+                        <th>11</th>
+                        <th>12</th>
+                        <th>13</th>
+                        <th>14</th>
+                        <th>15</th>
+                        <th>16</th>
+                        <th>17</th>
+                        <th>18</th>
+                        <th>19</th>
+                        <th>20</th>
+                        <th>21</th>
+                        <th>22</th>
+                        <th>23</th>
+                    </tr>
+                </thead>
+                <tbody >
+                    ${table_body}
+                </tbody>
+            </table> 
+        </div>
+        `;
+    }
+
+    function arrangeShift() {
+        const shift_id = document.querySelector('select[name="shift"]').value;
+        const start_date = document.querySelector('input[name="start_date"]').value;
+        const end_date = document.querySelector('input[name="end_date"]').value;
+        
+        if(!shift_id || !start_date || !end_date) {
+            toast('Please fill all fields', 'warning');
+            return;
+        }
+
+        if(start_date > end_date) {
+            toast('Start date cannot be greater than end date', 'warning');
+            return;
+        }
+
+        const users = getSelectedUsers();
+        if(!users.length) {
+            toast('Please select users', 'warning');
+            return;
+        }
+
+        const body = users.map(user => {
+            return {
+                shift_id,
+                user_id: user,
+                start_date,
+                end_date
+            }
+        });
+
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'employeeSchedule', req: {body}}));
+    }
+
+    function getSelectedUsers() {
+        const checkboxes = document.getElementsByName('user_id[]');
+        let users = [];
+        checkboxes.forEach(checkbox => {
+            if(checkbox.checked) {
+                users.push(checkbox.value);
+            }
+        });
+
+        return users;
+    }
+
+    function dateChange(element) {
+        for(user of USERS){
+            if(isDateInRange(element.value, user.start_date, user.end_date)){
+                element.value = '';
+                toast('User already has a shift in this date range', 'warning');
+            }
+        }
+    }
+
+    function isDateInRange(selected_date, start_date, end_date) {
+        let selected = new Date(selected_date);
+        let start = new Date(start_date);
+        let end = new Date(end_date);
+
+        return selected >= start && selected <= end;
+    }
+
+    function showShiftDetails(data) {
+        const modal = document.querySelector('.den-modal-second');
+        modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
+
+        let content = `
+            <h3>Shift Name : <small>${data.shift.name}</small></h3>
+            <h3>Start Date : <small>${formatDate(data.start_date)}</small></h3>
+            <h3>End Date : <small>${formatDate(data.end_date)}</small></h3>
+        `;
+
+        content += generateViewTimetableContent(data.shift);
+        document.querySelector('#modal-shift-detail-section').innerHTML = content;
+    }
+
+    function deleteUserShift(id, element) {
+
+        confirmBefore().then(() => {
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'deleteUserShift', req: {body:{id}}}));
+            toast('Shift deleted successfully', 'success');
+            element.parentElement.parentElement.remove();
+        }).catch((error) => {
+        });
+    }
+
+
+
+</script>

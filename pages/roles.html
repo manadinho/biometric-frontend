@@ -189,7 +189,7 @@
 
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', req: {body: role}}));
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'error');
         }
     }
 
