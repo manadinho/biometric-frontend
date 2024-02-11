@@ -56,7 +56,7 @@
             </div>
 
             <div class="den-button-group">
-                <button class="den-btn" >Create</button>
+                <button class="den-btn" id="den-user-form-btn">Create</button>
             </div>
         </form>
 
@@ -94,18 +94,21 @@
         }
 
         if(parsedEventData.data.method === 'create') {
+            toast('User created successfully', 'success');
             resetTable();
             showHideModal();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
         }
 
         if(parsedEventData.data.method === 'update') {
+            toast('User updated successfully', 'success');
             resetTable();
             showHideModal();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
         }
 
         if(parsedEventData.data.method === 'delete') {
+            toast('User deleted successfully', 'success');
             resetTable();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
         }
@@ -162,7 +165,7 @@
     }
 
     function resetTable() {
-        const tableBody = document.querySelector("#den-roles-table-body");
+        const tableBody = document.querySelector("#den-users-table-body");
 
         // Remove all rows in the table body except the first row (header)
         while (tableBody.lastElementChild) {
@@ -220,7 +223,7 @@
 
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'create', req: {body: user}}));
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 
@@ -249,7 +252,7 @@
             );
 
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 
@@ -268,7 +271,7 @@
         const form = document.getElementById('den-user-form');
         const modal = document.querySelector('.den-modal');
         const title = document.querySelector('.den-modal-title');
-        const button = document.querySelector('.den-button-group button');
+        const button = document.querySelector('#den-user-form-btn');
 
         form.reset();
         modal.style.visibility = 'visible';
@@ -282,7 +285,7 @@
         const form = document.getElementById('den-user-form');
         const modal = document.querySelector('.den-modal');
         const title = document.querySelector('.den-modal-title');
-        const button = document.querySelector('.den-button-group button');
+        const button = document.querySelector('#den-user-form-btn');
 
         form.reset();
         modal.style.visibility = 'visible';

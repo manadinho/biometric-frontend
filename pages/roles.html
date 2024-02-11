@@ -76,6 +76,7 @@
         }
 
         if(parsedEventData.data.method === 'create') {
+            toast('Role created successfully', 'success');
             checkPermission();
             resetTable();
             showHideModal();
@@ -83,6 +84,7 @@
         }
 
         if(parsedEventData.data.method === 'delete') {
+            toast('Role deleted successfully', 'success');
             checkPermission();
             resetTable();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
@@ -93,6 +95,7 @@
         }
 
         if(parsedEventData.data.method === 'update') {
+            toast('Role updated successfully', 'success');
             checkPermission();
             resetTable();
             showHideModal();
@@ -189,7 +192,7 @@
 
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', req: {body: role}}));
         } catch (error) {
-            toast(error.message.toUpperCase(), 'error');
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 
@@ -216,7 +219,7 @@
             );
 
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 

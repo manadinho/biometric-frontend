@@ -64,6 +64,7 @@
         }
 
         if(parsedEventData.data.method === 'transferUsers') {
+            toast('Users transferred successfully', 'success');
             resetPage();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
         }
@@ -264,7 +265,7 @@
         });
 
         if(!users.length) {
-            alert('Please select users');
+            toast('Please select users', 'warning');
             return;
         }
 

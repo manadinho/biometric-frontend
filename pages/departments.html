@@ -77,6 +77,7 @@
         }
 
         if(parsedEventData.data.method === 'create') {
+            toast('Department created successfully', 'success');
             checkPermission();
             resetTable();
             showHideModal();
@@ -84,6 +85,7 @@
         }
 
         if(parsedEventData.data.method === 'delete') {
+            toast('Department deleted successfully', 'success');
             checkPermission();
             resetTable();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
@@ -94,6 +96,7 @@
         }
 
         if(parsedEventData.data.method === 'update') {
+            toast('Department updated successfully', 'success');
             checkPermission();
             resetTable();
             showHideModal();
@@ -204,7 +207,7 @@
 
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'create', req: {body}}));
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 
@@ -232,7 +235,7 @@
             );
 
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 

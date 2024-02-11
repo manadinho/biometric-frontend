@@ -135,18 +135,21 @@
         }
 
         if(parsedEventData.data.method === 'create') {
+            toast('Timetable created successfully', 'success');
             resetTable();
             showHideModal();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
         }
 
         if(parsedEventData.data.method === 'update') {
+            toast('Timetable updated successfully', 'success');
             resetTable();
             showHideModal();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
         }
 
         if(parsedEventData.data.method === 'delete') {
+            toast('Timetable deleted successfully', 'success');
             resetTable();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
         }
@@ -242,7 +245,7 @@
 
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'create', req: { body }}));
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 
@@ -277,7 +280,7 @@
             );
 
         } catch (error) {
-            alert(error.message.toUpperCase());
+            toast(error.message.toUpperCase(), 'warning');
         }
     }
 
