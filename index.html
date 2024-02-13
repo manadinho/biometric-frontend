@@ -586,6 +586,59 @@
           return `${day} - ${month} - ${year}`;
       }
 
+        function generateSqlQuery(type, tableName, options, rawQuery = null){
+          let query = '';
+
+          if (rawQuery) {
+              return rawQuery;
+          }
+
+          switch (type.toLowerCase()) {
+              case 'select':
+                  const fields = options.fields ? options.fields.join(', ') : '*';
+                  query = `SELECT ${fields} FROM ${tableName}`;
+                  if (options.conditions) {
+                      query += ` WHERE ${options.conditions}`;
+                  }
+                  break;
+
+              case 'insert':
+                  const columns = Object.keys(options.data).join(', ');
+                  const values = Object.values(options.data).map(value => `'${value}'`).join(', ');
+                  query = `INSERT INTO ${tableName} (${columns}) VALUES (${values})`;
+                  break;
+
+              case 'update':
+                  const updateData = Object.entries(options.data).map(([key, value]) => `${key} = '${value}'`).join(', ');
+                  query = `UPDATE ${tableName} SET ${updateData}`;
+                  if (options.conditions) {
+                      query += ` WHERE ${options.conditions}`;
+                  }
+                  break;
+
+              case 'delete':
+                  query = `DELETE FROM ${tableName}`;
+                  if (options.conditions) {
+                      query += ` WHERE ${options.conditions}`;
+                  }
+                  break;
+
+              default:
+                  throw new Error('Unsupported query type');
+          }
+
+          return query;
+        }
+
+        function denId() {
+            const now = Date.now();
+            // const randomPart = Math.floor(Math.random() * 10000); 
+            const uniqueTimestamp = `${now}`;
+            
+            return uniqueTimestamp;
+        }
+
+
     </script>
 </body>
 <script src="/script.js"></script>

@@ -214,14 +214,17 @@
 
             const formData = new FormData(form);
 
-            const user = {
+            const data = {
+                id: genId(),
                 name: getInputValue( formData, 'name'),
                 email: getInputValue( formData, 'email'),
                 password: getInputValue( formData, 'password'),
                 role_id: getInputValue( formData, 'role')
             }
 
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'create', req: {body: user}}));
+            const insertQuery = generateSqlQuery('insert', 'users', {data});
+
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query',genend: 'frontend', queries: [insertQuery]}));
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }

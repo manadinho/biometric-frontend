@@ -57,9 +57,23 @@
     var searchInput = document.getElementById('searchInput')
     searchInput.addEventListener('keyup', () => searchTable('den-roles-table', searchInput));
 
-    //QUERY ALL ROLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', req: {}}));
+    //QUERY ALL ROLES AND PERMISSIONS
+    const rolesRawquery = `SELECT 
+  roles.id, 
+  roles.name AS role_name,
+  ARRAY_AGG(ROW_TO_JSON(permissions.*)) AS permissions
+  FROM 
+      roles
+  LEFT JOIN 
+      permission_role ON roles.id = permission_role.role_id
+  LEFT JOIN 
+      permissions ON permission_role.permission_id = permissions.id
+  GROUP BY 
+      roles.id, roles.name;`;
+    const rolesQuery = generateSqlQuery('', '', {}, rolesRawquery);
+    const permissionQuery = generateSqlQuery('select', 'permissions', {});
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', isMutation: false, genend: 'frontend', queries: [permissionQuery]}));
 
 
     // Event listener for receiving messages from the server
@@ -80,14 +94,16 @@
             checkPermission();
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', isMutation: false, genend: 'frontend', queries: [permissionQuery]}));
         }
 
         if(parsedEventData.data.method === 'delete') {
             toast('Role deleted successfully', 'success');
             checkPermission();
             resetTable();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', isMutation: false, genend: 'frontend', queries: [permissionQuery]}));
         }
 
         if(parsedEventData.data.method === 'findById'){
@@ -99,7 +115,8 @@
             checkPermission();
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', isMutation: false, genend: 'frontend', queries: [permissionQuery]}));
         }
         
       }
@@ -165,7 +182,9 @@
 
     function deleteRole(id) {
         confirmBefore().then(() => {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'delete', req: {body:{id}}}));
+            const deleteRoleQuery = generateSqlQuery('delete', 'roles', {conditions: `id = ${id}`});
+            const deletePermissionRoleQuery = generateSqlQuery('delete', 'permission_role', {conditions: `role_id = ${id}`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'delete', isMutation: true, genend: 'frontend',  queries: [deletePermissionRoleQuery, deleteRoleQuery]}));
         }).catch((error) => {
         });
     }
@@ -186,12 +205,19 @@
             const formData = new FormData(form);
 
             const role = {
+                id: denId(),
                 name: getInputValue( formData, 'name'),
-                permissions: getInputValue( formData, 'permissions[]', 'multiple')
+            }
+            const createRoleQuery = generateSqlQuery('insert', 'roles', {data:role});
+
+            const permissionQueries = [];
+            for (let permission of getInputValue( formData, 'permissions[]', 'multiple')) {
+                permissionQueries.push(generateSqlQuery('insert', 'permission_role', {data:{role_id: role.id, permission_id: permission}}));
             }
 
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', req: {body: role}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', isMutation: true, genend: 'frontend',  queries: [createRoleQuery, ...permissionQueries]}));
         } catch (error) {
+            console.error(error);
             toast(error.message.toUpperCase(), 'warning');
         }
     }
@@ -224,14 +250,8 @@
     }
 
     function editRole(id) {
-        window.DENONTEK_SOCKET.send(
-            JSON.stringify({
-                type: "query",
-                name: "roles",
-                method: "findById",
-                req: { body: { id } },
-            })
-        );
+        const query = generateSqlQuery('select', 'roles', {conditions: `id = ${id}`});
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'findById', isMutation: false, genend: 'frontend', queries: [query]}));
     }
 
     function createRoleForm() {
