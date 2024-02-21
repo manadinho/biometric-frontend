@@ -66,15 +66,19 @@
 
 
 <script>
+    const usersRawQuery = `SELECT users.id, users.email, users.name AS user_name, roles.name AS role_name, roles.id AS role_id FROM users LEFT JOIN role_user ON users.id = role_user.user_id LEFT JOIN roles ON role_user.role_id = roles.id`;
+    const usersQuery = generateSqlQuery('', '', {}, usersRawQuery);
+    const rolesQuery = generateSqlQuery('select', 'roles', {});
     // Add event listener to the search field to call the searchTable function on every keyup event
     var searchInput = document.getElementById('searchInput')
     searchInput.addEventListener('keyup', () => searchTable('den-users-table', searchInput));
 
     // QUERY ALL USERS
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', isMutation: false, genend: 'frontend', queries: [usersQuery]}));
 
     //QUERY ALL ROLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', req: {}}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
+
 
 
     
@@ -97,24 +101,20 @@
             toast('User created successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', isMutation: false, genend: 'frontend', queries: [usersQuery]}));
         }
 
         if(parsedEventData.data.method === 'update') {
             toast('User updated successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', isMutation: false, genend: 'frontend', queries: [usersQuery]}));
         }
 
         if(parsedEventData.data.method === 'delete') {
             toast('User deleted successfully', 'success');
             resetTable();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', req: {}}));
-        }
-
-        if(parsedEventData.data.method === 'findById'){
-            editUserSetForm(parsedEventData.data.data);
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', isMutation: false, genend: 'frontend', queries: [usersQuery]}));
         }
         
       }
@@ -159,7 +159,7 @@
         const cell = document.createElement("td");
         cell.innerHTML = `
         <button class="den-close-button" onclick="deleteUser(${rowData.id})">X</button>
-        <button class="den-edit-button" onclick="editUser(${rowData.id})">EDIT</button>
+        <button class="den-edit-button" onclick='editUser(${JSON.stringify(rowData)})'>EDIT</button>
         `;
         row.appendChild(cell);
     }
@@ -175,7 +175,9 @@
 
     function deleteUser(id) {
         confirmBefore().then(() => {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'delete', req: {body:{id}}}));
+            const userDeleteQuery = generateSqlQuery('delete', 'users', {conditions: `id = ${id}`});
+            const roleUserDeleteQuery = generateSqlQuery('delete', 'role_user', {conditions: `user_id = ${id}`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'delete', isMutation: true, genend: 'frontend',  queries: [roleUserDeleteQuery, userDeleteQuery]}));
         }).catch((error) => {
         });
     }
@@ -188,7 +190,7 @@
     }
 
     function drawRoles(roles = []){
-        addOption({role_name: 'Select a Role', id: ''});
+        addOption({name: 'Select a Role', id: ''});
 
         for(const role of roles) {
             addOption(role);
@@ -200,7 +202,7 @@
         const select = document.getElementById('roles');
         const option = document.createElement('option');
         
-        option.text = role.role_name;
+        option.text = role.name;
         option.value = role.id;
 
         select.appendChild(option);
@@ -215,16 +217,16 @@
             const formData = new FormData(form);
 
             const data = {
-                id: genId(),
+                id: denId(),
                 name: getInputValue( formData, 'name'),
                 email: getInputValue( formData, 'email'),
                 password: getInputValue( formData, 'password'),
-                role_id: getInputValue( formData, 'role')
             }
 
-            const insertQuery = generateSqlQuery('insert', 'users', {data});
+            const userCreateQuery = generateSqlQuery('insert', 'users', {data});
+            const roleUserCreateQuery = generateSqlQuery('insert', 'role_user', {data: {user_id: data.id, role_id: getInputValue( formData, 'role')}});
 
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query',genend: 'frontend', queries: [insertQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'create', isMutation: true, genend: 'frontend',  queries: [userCreateQuery, roleUserCreateQuery]}));
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
@@ -242,32 +244,21 @@
                 name: getInputValue( formData, 'name'),
                 email: getInputValue( formData, 'email'),
                 password: getInputValue( formData, 'password'),
-                role_id: getInputValue( formData, 'role')
             }
 
-            window.DENONTEK_SOCKET.send(
-                JSON.stringify({
-                    type: "query",
-                    name: "users",
-                    method: "update",
-                    req: { body: { ...user, id } },
-                })
-            );
+            const userUpdateQuery = generateSqlQuery('update', 'users', {data: user, conditions: `id = ${id}`});
+            const roleUserDeleteQuery = generateSqlQuery('delete', 'role_user', {conditions: `user_id = ${id}`});
+            const roleUserCreateQuery = generateSqlQuery('insert', 'role_user', {data: {user_id: id, role_id: getInputValue( formData, 'role')}});
+
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'update', isMutation: true, genend: 'frontend',  queries: [userUpdateQuery, roleUserDeleteQuery, roleUserCreateQuery]}));
 
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
     }
 
-    function editUser(id) {
-        window.DENONTEK_SOCKET.send(
-            JSON.stringify({
-                type: "query",
-                name: "users",
-                method: "findById",
-                req: { body: { id } },
-            })
-        );
+    function editUser(user) {
+        editUserSetForm(user)
     }
 
     function createUserForm() {

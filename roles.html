@@ -58,18 +58,8 @@
     searchInput.addEventListener('keyup', () => searchTable('den-roles-table', searchInput));
 
     //QUERY ALL ROLES AND PERMISSIONS
-    const rolesRawquery = `SELECT 
-  roles.id, 
-  roles.name AS role_name,
-  ARRAY_AGG(ROW_TO_JSON(permissions.*)) AS permissions
-  FROM 
-      roles
-  LEFT JOIN 
-      permission_role ON roles.id = permission_role.role_id
-  LEFT JOIN 
-      permissions ON permission_role.permission_id = permissions.id
-  GROUP BY 
-      roles.id, roles.name;`;
+    // const rolesRawquery = `SELECT roles.id, roles.name AS role_name, ARRAY_AGG(ROW_TO_JSON(permissions.*)) AS permissions FROM roles LEFT JOIN permission_role ON roles.id = permission_role.role_id LEFT JOIN permissions ON permission_role.permission_id = permissions.id GROUP BY roles.id, roles.name;`;
+    const rolesRawquery = `SELECT roles.id, roles.name AS role_name, '[' || GROUP_CONCAT('{\"permission_id\":\"' || permissions.id || '\",\"permission_name\":\"' || permissions.name || '\"}') || ']' AS permissions FROM roles LEFT JOIN permission_role ON roles.id = permission_role.role_id LEFT JOIN permissions ON permission_role.permission_id = permissions.id GROUP BY roles.id, roles.name;`;
     const rolesQuery = generateSqlQuery('', '', {}, rolesRawquery);
     const permissionQuery = generateSqlQuery('select', 'permissions', {});
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
@@ -106,9 +96,11 @@
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'allPermissions', isMutation: false, genend: 'frontend', queries: [permissionQuery]}));
         }
 
-        if(parsedEventData.data.method === 'findById'){
-            editRoleSetForm(parsedEventData.data.data);
-        }
+        // NOT IN USE START
+            if(parsedEventData.data.method === 'findById'){
+                editRoleSetForm(parsedEventData.data.data);
+            }
+        // NOT IN USE END
 
         if(parsedEventData.data.method === 'update') {
             toast('Role updated successfully', 'success');
@@ -144,12 +136,13 @@
     }
 
     function drawPermissions(rowData, row) {
+        rowData = JSON.parse(rowData);
         const cell = document.createElement("td");
 
         let permissions_content = ``;
         for(let data of rowData) {
             if(data){
-                permissions_content += `<span class="den-primary-badge">${data.name}</span>`;;
+                permissions_content += `<span class="den-primary-badge">${data.permission_name}</span>`;;
             }
         }
         cell.innerHTML = permissions_content;
@@ -166,7 +159,7 @@
         const cell = document.createElement("td");
         cell.innerHTML = `
         <button class="den-close-button" onclick="deleteRole(${rowData.id})">X</button>
-        <button class="den-edit-button" onclick="editRole(${rowData.id})">EDIT</button>
+        <button class="den-edit-button" onclick='editRole(${JSON.stringify(rowData)})'>EDIT</button>
         `;
         row.appendChild(cell);
     }
@@ -231,27 +224,25 @@
             const formData = new FormData(form);
 
             const role = {
-                name: getInputValue( formData, 'name'),
-                permissions: getInputValue( formData, 'permissions[]', 'multiple')
+                name: getInputValue( formData, 'name')
             }
 
-            window.DENONTEK_SOCKET.send(
-                JSON.stringify({
-                    type: "query",
-                    name: "roles",
-                    method: "update",
-                    req: { body: { ...role, id } },
-                })
-            );
+            const updateRoleQuery = generateSqlQuery('update', 'roles', {conditions: `id = ${id}`, data: role});
+            const deletePermissionRoleQuery = generateSqlQuery('delete', 'permission_role', {conditions: `role_id = ${id}`});
+            const permissionQueries = [];
+            for (let permission of getInputValue( formData, 'permissions[]', 'multiple')) {
+                permissionQueries.push(generateSqlQuery('insert', 'permission_role', {data:{role_id: id, permission_id: permission}}));
+            }
+
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'update', isMutation: true, genend: 'frontend',  queries: [updateRoleQuery, deletePermissionRoleQuery, ...permissionQueries]}));
 
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
     }
 
-    function editRole(id) {
-        const query = generateSqlQuery('select', 'roles', {conditions: `id = ${id}`});
-        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'findById', isMutation: false, genend: 'frontend', queries: [query]}));
+    function editRole(role) {
+        editRoleSetForm(role);
     }
 
     function createRoleForm() {
@@ -269,6 +260,7 @@
 
     function editRoleSetForm(data){
         const role = data;
+        const permissions = JSON.parse(role.permissions).map(permission => permission.permission_id);
         const form = document.getElementById('den-role-form');
         const modal = document.querySelector('.den-modal');
         const title = document.querySelector('.den-modal-title');
@@ -280,23 +272,29 @@
         button.textContent = 'Update';
         button.onclick = () => updateRole(role.id);
 
-        form.elements['name'].value = role.name;
+        form.elements['name'].value = role.role_name;
         
         let selectElement = form.elements['permissions[]'];
 
         // Iterate through each option in the select element
         for (let option of selectElement.options) {
-            if (role.permissions.includes(+ option.value)) {
+            if (permissions.includes(option.value)) {
                 option.selected = true;
             }
         }
     }
 
     function drawPermissionsInSelectTag(permissions = []){
+        resetSelectTag();
         for(const permission of permissions) {
             addOption(permission);
         }
 
+    }
+
+    function resetSelectTag() {
+        const select = document.getElementById('permissions');
+        select.innerHTML = '';
     }
 
     function addOption(permission) {

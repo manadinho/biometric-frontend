@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Den Biometric</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -306,6 +306,7 @@
     
     <script>
       window.DENONTEK_SOCKET = new WebSocket('ws://localhost:1000');
+      // window.DENONTEK_SOCKET = new WebSocket('ws://denbiometric.local/ws');
       window.TOKEN = null;
   
       // Event listener for when the connection is established
@@ -450,24 +451,28 @@
       function doLogin() {
         try {
             const form = document.getElementById('den-login-form');
-            // Disable form submit
             form.addEventListener('submit', (e) => e.preventDefault());
-
+            
             const formData = new FormData(form);
+            const loginQuery = generateSqlQuery('select', 'users', {
+                conditions: `email = '${ getInputValue( formData, 'username')}' AND password = '${ getInputValue( formData, 'password')}'`
+            });
+            
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'auth', method: 'login', isMutation: false, genend: 'frontend', queries: [loginQuery]}));
 
-            const body = {
-                username: getInputValue( formData, 'username'),
-                password: getInputValue( formData, 'password')
-            }
+            // const body = {
+            //     username: getInputValue( formData, 'username'),
+            //     password: getInputValue( formData, 'password')
+            // }
 
-            window.DENONTEK_SOCKET.send(
-                JSON.stringify({
-                    type: "query",
-                    name: "auth",
-                    method: "login",
-                    req: { body },
-                })
-            );
+            // window.DENONTEK_SOCKET.send(
+            //     JSON.stringify({
+            //         type: "query",
+            //         name: "auth",
+            //         method: "login",
+            //         req: { body },
+            //     })
+            // );
 
         } catch (error) {
             alert(error.message.toUpperCase());

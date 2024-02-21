@@ -31,12 +31,22 @@
 
         <form id="den-department-form">
             <div class="den-form-group">
+                <label for="department_type">Select Type</label>
+                <select name="department_type" class="den-select" id="department_type">
+                    <option value="">Select Department Type</option>
+                    <option value="DEPARTMENT">Department</option>
+                    <option value="SUBDEPARTMENT">Sub Department</option>
+                </select>
+                <!-- <div class="den-error">Error messages here</div> -->
+            </div>
+
+            <div class="den-form-group" id="department_input_name_div" style="visibility: hidden;">
                 <label for="name">Name</label>
                 <input id="name" class="den-input" type="name" name="name" value="" required autofocus>
                 <!-- <div class="den-error">Error messages here</div> -->
             </div>
 
-            <div class="den-form-group">
+            <div class="den-form-group" id="department_input_parent_div" style="visibility: hidden;">
                 <label for="parent_department">Select a Parent Department</label>
                 <select name="parent_department" class="den-select" id="parent_departments">
                 </select>
@@ -54,15 +64,34 @@
 
 
 <script>
+    const departmentsRawQuery = `SELECT departments.*, COUNT(users.id) AS user_count FROM departments LEFT JOIN users ON users.department_id = departments.id GROUP BY departments.id ORDER BY CASE WHEN departments.parent_id IS NULL THEN departments.id ELSE departments.parent_id END, departments.parent_id IS NOT NULL, departments.id;`
+    
+    const departmenstQuery = generateSqlQuery('', '', {}, departmentsRawQuery);
+    const parentDepartmentsQuery = generateSqlQuery('select', 'departments', {conditions: `parent_id IS NULL`});
     // Add event listener to the search field to call the searchTable function on every keyup event
     var searchInput = document.getElementById('searchInput')
     searchInput.addEventListener('keyup', () => searchTable('den-departments-table', searchInput));
 
-    //QUERY ALL ROLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'parentDepartments', req: {}}));
+    //QUERY ALL DEPARTMENTS
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'parentDepartments', isMutation: false, genend: 'frontend', queries: [parentDepartmentsQuery]}));
 
 
+    // Event listener for department type select
+    document.querySelector('#department_type').addEventListener('change', (e) => {
+        const departmentType = e.target.value;
+        if(departmentType === 'DEPARTMENT') {
+            document.getElementById('department_input_name_div').style.visibility = 'visible';
+            document.getElementById('department_input_parent_div').style.visibility = 'hidden';
+        } else if(departmentType === 'SUBDEPARTMENT') {
+            document.getElementById('department_input_name_div').style.visibility = 'visible';
+            document.getElementById('department_input_parent_div').style.visibility = 'visible';
+        } else {
+            document.getElementById('department_input_name_div').style.visibility = 'hidden';
+            document.getElementById('department_input_parent_div').style.visibility = 'hidden';
+        }
+    });
+    
     // Event listener for receiving messages from the server
     window.DENONTEK_SOCKET.onmessage = (event) => {
       const parsedEventData = JSON.parse(event.data);
@@ -81,18 +110,14 @@
             checkPermission();
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
         }
 
         if(parsedEventData.data.method === 'delete') {
             toast('Department deleted successfully', 'success');
             checkPermission();
             resetTable();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
-        }
-
-        if(parsedEventData.data.method === 'findById'){
-            editDepartmentSetForm(parsedEventData.data.data);
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
         }
 
         if(parsedEventData.data.method === 'update') {
@@ -100,7 +125,7 @@
             checkPermission();
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
         }
         
       }
@@ -132,7 +157,7 @@
 
         setTdContent(rowData.name, row)
         setTdContent('', row)
-        setTdContent('', row)
+        drawActionBtns(rowData, row);
     }
 
     function drawRow(rowData) {
@@ -163,8 +188,8 @@
     function drawActionBtns(rowData, row) {
         const cell = document.createElement("td");
         cell.innerHTML = `
-        <button class="den-close-button" onclick="deleteDepartment(${rowData.id})">X</button>
-        <button class="den-edit-button" onclick="editDepartment(${rowData.id})">EDIT</button>
+        <button class="den-close-button" onclick='deleteDepartment(${JSON.stringify(rowData)})'>X</button>
+        <button class="den-edit-button" onclick='editDepartment(${JSON.stringify(rowData)})'>EDIT</button>
         `;
         row.appendChild(cell);
     }
@@ -178,9 +203,15 @@
         }
     }
 
-    function deleteDepartment(id) {
+    function deleteDepartment(department) {
+        if(!department['parent_id']) {
+            toast('You cannot delete a parent department', 'warning');
+            return;
+        }
+
         confirmBefore().then(() => {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'delete', req: {body:{id}}}));
+            const departmentDeleteQuery = generateSqlQuery('delete', 'departments', {conditions: `id = ${department.id}`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'delete', isMutation: true, genend: 'frontend',  queries: [departmentDeleteQuery]}));
         }).catch((error) => {
         });
     }
@@ -190,6 +221,9 @@
         const form = document.getElementById('den-department-form');
         form.reset();
         modal.style.visibility = modal.style.visibility == 'visible' ? 'hidden' : 'visible';
+
+        document.getElementById('department_input_name_div').style.visibility = 'hidden';
+        document.getElementById('department_input_parent_div').style.visibility = 'hidden';
     }
 
     function createDepartment() {
@@ -200,12 +234,20 @@
 
             const formData = new FormData(form);
 
-            const body = {
+            const type = getInputValue( formData, 'department_type');
+            const data = {
+                id: denId(),
                 name: getInputValue( formData, 'name'),
-                parent_department: getInputValue( formData, 'parent_department'),
             }
 
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'create', req: {body}}));
+            if(type === 'SUBDEPARTMENT') {
+                data.parent_id = getInputValue( formData, 'parent_department');
+            }
+
+            const departmentCreateQuery = generateSqlQuery('insert', 'departments', {data});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'create', isMutation: true, genend: 'frontend',  queries: [departmentCreateQuery]}));
+
+            // window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'create', req: {body}}));
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
@@ -217,37 +259,28 @@
             // Disable form submit
             form.addEventListener('submit', (e) => e.preventDefault());
 
+            document.getElementById('department_type').disabled= false;
             const formData = new FormData(form);
 
-            const body = {
-                id,
+            const type = getInputValue( formData, 'department_type');
+            const data = {
                 name: getInputValue( formData, 'name'),
-                parent_department: getInputValue( formData, 'parent_department')
             }
 
-            window.DENONTEK_SOCKET.send(
-                JSON.stringify({
-                    type: "query",
-                    name: "departments",
-                    method: "update",
-                    req: { body},
-                })
-            );
+            if(type === 'SUBDEPARTMENT') {
+                data.parent_id = getInputValue( formData, 'parent_department');
+            }
+
+            const departmentUpdateQuery = generateSqlQuery('update', 'departments', {data, conditions: `id = ${id}`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'update', isMutation: true, genend: 'frontend',  queries: [departmentUpdateQuery]}));
 
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
     }
 
-    function editDepartment(id) {
-        window.DENONTEK_SOCKET.send(
-            JSON.stringify({
-                type: "query",
-                name: "departments",
-                method: "findById",
-                req: { body: { id } },
-            })
-        );
+    function editDepartment(department) {
+        editDepartmentSetForm(department);
     }
 
     function createDepartmentForm() {
@@ -271,12 +304,18 @@
 
         form.reset();
         modal.style.visibility = 'visible';
+        document.getElementById('department_input_name_div').style.visibility = 'visible';
+        document.getElementById('department_type').disabled= true;
         title.textContent = 'Edit Department';
         button.textContent = 'Update';
         button.onclick = () => updateDepartment(data.id);
 
         form.elements['name'].value = data.name;
-        form.elements['parent_department'].value = data.parent_id;
+        form.elements['department_type'].value = data.parent_id ? 'SUBDEPARTMENT' : 'DEPARTMENT';
+        if(data.parent_id) {
+            document.getElementById('department_input_parent_div').style.visibility = 'visible';
+            form.elements['parent_department'].value = data.parent_id;
+        }
     }
 
     function nestCategories(categories) {
