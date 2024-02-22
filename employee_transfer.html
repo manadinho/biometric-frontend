@@ -45,8 +45,10 @@
 
 <script>
 
-    //QUERY ALL ROLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+    //QUERY DEPARTMENTS
+    const departmentsRawQuery = `SELECT departments.*, COUNT(users.id) AS user_count FROM departments LEFT JOIN users ON users.department_id = departments.id GROUP BY departments.id ORDER BY CASE WHEN departments.parent_id IS NULL THEN departments.id ELSE departments.parent_id END, departments.parent_id IS NOT NULL, departments.id;`
+    const departmenstQuery = generateSqlQuery('', '', {}, departmentsRawQuery);
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
 
 
     // Event listener for receiving messages from the server
@@ -66,7 +68,7 @@
         if(parsedEventData.data.method === 'transferUsers') {
             toast('Users transferred successfully', 'success');
             resetPage();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
         }
         
       }
@@ -212,7 +214,9 @@
         
         element.classList.add('child-dep-link-active');
         resetTable();
-        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', req: {body:{id}}}));
+        const rawQuery = `SELECT users.*, departments.name AS department_name FROM users LEFT JOIN departments ON users.department_id = departments.id WHERE users.department_id = ${id} ORDER BY users.id`;
+        const query = generateSqlQuery('', '', {}, rawQuery);
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', isMutation: false, genend: 'frontend', queries: [query]}));
     }
 
     function resetTable() {
@@ -306,7 +310,8 @@
         const department = document.querySelector('.child-dep-link-active-modal');
         const departmentId = department.getAttribute('data-depid');
         if(departmentId) {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'transferUsers', req: {body:{users, departmentId}}}));
+            const transerUserQuery = generateSqlQuery('update', 'users', {data: {department_id: departmentId}, conditions: `id IN (${users})`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'transferUsers', isMutation: true, genend: 'frontend',  queries: [transerUserQuery]}));
         } else {
             alert('Please select department');
         }

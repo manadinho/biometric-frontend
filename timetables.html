@@ -122,7 +122,8 @@
     searchInput.addEventListener('keyup', () => searchTable('den-timetable-table', searchInput));
 
     // QUERY ALL TIMETABLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+    const timeTablesQuery = generateSqlQuery('select', 'timetables', {});
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
 
 
     // Event listener for receiving messages from the server
@@ -138,20 +139,20 @@
             toast('Timetable created successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
         }
 
         if(parsedEventData.data.method === 'update') {
             toast('Timetable updated successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
         }
 
         if(parsedEventData.data.method === 'delete') {
             toast('Timetable deleted successfully', 'success');
             resetTable();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
         }
 
         if(parsedEventData.data.method === 'findById'){
@@ -195,13 +196,13 @@
         const cell = document.createElement("td");
         cell.innerHTML = `
         <button class="den-close-button" onclick="deleteTimetable(${rowData.id})">X</button>
-        <button class="den-edit-button" onclick="editTimetable(${rowData.id})">EDIT</button>
+        <button class="den-edit-button" onclick='editTimetable(${JSON.stringify(rowData)})'>EDIT</button>
         `;
         row.appendChild(cell);
     }
 
     function resetTable() {
-        const tableBody = document.querySelector("#den-roles-table-body");
+        const tableBody = document.querySelector("#den-timetable-table-body");
 
         // Remove all rows in the table body except the first row (header)
         while (tableBody.lastElementChild) {
@@ -211,7 +212,8 @@
 
     function deleteTimetable(id) {
         confirmBefore().then(() => {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'delete', req: {body:{id}}}));
+            const deleteTimeTableQuery = generateSqlQuery('delete', 'timetables', {conditions: `id = ${id}`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'delete', isMutation: true, genend: 'frontend',  queries: [deleteTimeTableQuery]}));
         }).catch((error) => {
         });
     }
@@ -231,7 +233,8 @@
 
             const formData = new FormData(form);
 
-            const body = {
+            const data = {
+                id: denId(),
                 name: getInputValue( formData, 'name'),
                 late_time: getInputValue( formData, 'late_time'),
                 leave_early_time: getInputValue( formData, 'leave_early_time'),
@@ -242,8 +245,8 @@
                 checkout_start: getInputValue( formData, 'checkout_start'),
                 checkout_end: getInputValue( formData, 'checkout_end'),
             }
-
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'create', req: { body }}));
+            const createTimeTableQuery = generateSqlQuery('insert', 'timetables', {data});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'create', isMutation: true, genend: 'frontend',  queries: [createTimeTableQuery]}));
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
@@ -257,8 +260,7 @@
 
             const formData = new FormData(form);
 
-            const body = {
-                id,
+            const data = {
                 name: getInputValue( formData, 'name'),
                 late_time: getInputValue( formData, 'late_time'),
                 leave_early_time: getInputValue( formData, 'leave_early_time'),
@@ -270,29 +272,16 @@
                 checkout_end: getInputValue( formData, 'checkout_end'),
             }
 
-            window.DENONTEK_SOCKET.send(
-                JSON.stringify({
-                    type: "query",
-                    name: "timetables",
-                    method: "update",
-                    req: { body },
-                })
-            );
+            const updateTimeTableQuery = generateSqlQuery('update', 'timetables', {conditions: `id = ${id}`, data});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'update', isMutation: true, genend: 'frontend',  queries: [updateTimeTableQuery]}));
 
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
     }
 
-    function editTimetable(id) {
-        window.DENONTEK_SOCKET.send(
-            JSON.stringify({
-                type: "query",
-                name: "timetables",
-                method: "findById",
-                req: { body: { id } },
-            })
-        );
+    function editTimetable(data) {
+        editTimetableSetForm(data)
     }
 
     function createTimetableForm() {

@@ -45,8 +45,11 @@
     var TIMETABLES = [];
 
     //QUERY ALL
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+    const shitsQuery = generateSqlQuery('select', 'shifts', {});
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
+
+    const timeTablesQuery = generateSqlQuery('select', 'timetables', {});
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
 
 
     // Event listener for receiving messages from the server
@@ -68,13 +71,13 @@
             toast('Shift created successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
         }
 
         if(parsedEventData.data.method === 'delete') {
             toast('Shift deleted successfully', 'success');
             resetTable();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
         }
 
         if(parsedEventData.data.method === 'findById'){
@@ -85,14 +88,14 @@
             toast('Timetable added successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
         }
 
         if(parsedEventData.data.method === 'update') {
             toast('Shift updated successfully', 'success');
             resetTable();
             showHideModal();
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
         }
         
       }
@@ -143,7 +146,7 @@
         cell.innerHTML = `
         <button class="den-edit-button" onclick='viewTimetable(${JSON.stringify(rowData)})'>VIEW TIMETABLE</button>
         <button class="den-edit-button" onclick='addTimetable(${JSON.stringify(rowData)})'>ADD TIMETABLE</button>
-        <button class="den-edit-button" onclick="editShift(${rowData.id})">EDIT</button>
+        <button class="den-edit-button" onclick='editShift(${JSON.stringify(rowData)})'>EDIT</button>
         <button class="den-close-button" onclick="deleteShift(${rowData.id})">X</button>
 
         `;
@@ -161,9 +164,9 @@
 
     function deleteShift(id) {
         confirmBefore().then(() => {
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'delete', req: {body:{id}}}));
-        }).catch((error) => {
-        });
+            const deleteShiftQuery = generateSqlQuery('delete', 'shifts', {conditions: `id = ${id}`});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'delete', isMutation: true, genend: 'frontend',  queries: [deleteShiftQuery]}));
+        }).catch((error) => {});
     }
 
     function showHideModal() {
@@ -191,11 +194,22 @@
 
             const formData = new FormData(form);
 
-            const body = {
-                name: getInputValue( formData, 'name')
+            const data = {
+                id: denId(),
+                name: getInputValue( formData, 'name'),
+                timetables: JSON.stringify({
+                    MONDAY: null,
+                    TUESDAY: null,
+                    WEDNESDAY: null,
+                    THURSDAY: null,
+                    FRIDAY: null,
+                    SATURDAY: null,
+                    SUNDAY: null,
+                }),
             }
 
-            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'create', req: { body }}));
+            const createShiftQuery = generateSqlQuery('insert', 'shifts', {data});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'create', isMutation: true, genend: 'frontend',  queries: [createShiftQuery]}));
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
@@ -209,33 +223,20 @@
 
             const formData = new FormData(form);
 
-            const body = {
+            const data = {
                 name: getInputValue( formData, 'name'),
             }
 
-            window.DENONTEK_SOCKET.send(
-                JSON.stringify({
-                    type: "query",
-                    name: "shifts",
-                    method: "update",
-                    req: { body: { ...body, id } },
-                })
-            );
+            const updateShiftQuery = generateSqlQuery('update', 'shifts', {conditions: `id = ${id}`, data});
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'update', isMutation: true, genend: 'frontend',  queries: [updateShiftQuery]}));
 
         } catch (error) {
             toast(error.message.toUpperCase(), 'warning');
         }
     }
 
-    function editShift(id) {
-        window.DENONTEK_SOCKET.send(
-            JSON.stringify({
-                type: "query",
-                name: "shifts",
-                method: "findById",
-                req: { body: { id } },
-            })
-        );
+    function editShift(shift) {
+        editShiftSetForm(shift);
     }
 
     function createShiftForm() {
@@ -369,6 +370,7 @@
 
     function addTimetable(shift) {
         const addTimeTableContent = generateAddTimetableContent(shift);
+        console.log('===addTimeTableContent', addTimeTableContent);
         document.querySelector('.den-modal-content').innerHTML = addTimeTableContent;
         timetableChange();
         const modal = document.querySelector('.den-modal');
@@ -441,12 +443,12 @@
             timetables[days[iterator++]] = timetable_by_day.value || null;
         }
 
-        const body = {
-            timetables,
-            id: shift.id
+        const data = {
+            timetables: JSON.stringify(timetables),
         }
 
-        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'saveTimetable', req: { body }}));
+        const updateShiftQuery = generateSqlQuery('update', 'shifts', {conditions: `id = ${shift.id}`, data});
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'saveTimetable', isMutation: true, genend: 'frontend',  queries: [updateShiftQuery]}));
     }
 
     function timetableChange() {
