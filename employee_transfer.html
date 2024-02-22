@@ -44,10 +44,6 @@
 
 
 <script>
-
-    //QUERY DEPARTMENTS
-    const departmentsRawQuery = `SELECT departments.*, COUNT(users.id) AS user_count FROM departments LEFT JOIN users ON users.department_id = departments.id GROUP BY departments.id ORDER BY CASE WHEN departments.parent_id IS NULL THEN departments.id ELSE departments.parent_id END, departments.parent_id IS NOT NULL, departments.id;`
-    const departmenstQuery = generateSqlQuery('', '', {}, departmentsRawQuery);
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
 
 

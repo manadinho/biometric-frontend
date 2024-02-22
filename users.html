@@ -66,16 +66,12 @@
 
 
 <script>
-    const usersRawQuery = `SELECT users.id, users.email, users.name AS user_name, roles.name AS role_name, roles.id AS role_id FROM users LEFT JOIN role_user ON users.id = role_user.user_id LEFT JOIN roles ON role_user.role_id = roles.id`;
-    const usersQuery = generateSqlQuery('', '', {}, usersRawQuery);
-    const rolesQuery = generateSqlQuery('select', 'roles', {});
     // Add event listener to the search field to call the searchTable function on every keyup event
     var searchInput = document.getElementById('searchInput')
     searchInput.addEventListener('keyup', () => searchTable('den-users-table', searchInput));
 
     // QUERY ALL USERS
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'users', method: 'all', isMutation: false, genend: 'frontend', queries: [usersQuery]}));
-
     //QUERY ALL ROLES
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'all', isMutation: false, genend: 'frontend', queries: [rolesQuery]}));
 

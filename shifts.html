@@ -44,11 +44,8 @@
 
     var TIMETABLES = [];
 
-    //QUERY ALL
-    const shitsQuery = generateSqlQuery('select', 'shifts', {});
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
 
-    const timeTablesQuery = generateSqlQuery('select', 'timetables', {});
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
 
 

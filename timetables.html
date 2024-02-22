@@ -120,9 +120,7 @@
     // Add event listener to the search field to call the searchTable function on every keyup event
     var searchInput = document.getElementById('searchInput')
     searchInput.addEventListener('keyup', () => searchTable('den-timetable-table', searchInput));
-
-    // QUERY ALL TIMETABLES
-    const timeTablesQuery = generateSqlQuery('select', 'timetables', {});
+    
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
 
 
