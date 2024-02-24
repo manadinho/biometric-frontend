@@ -126,7 +126,7 @@
         const row = document.createElement("tr"); 
         table.appendChild(row); 
 
-        setTdContent(rowData.role_name, row)
+        setTdContent(rowData.name, row)
         drawPermissions(rowData.permissions, row);
         drawActionBtns(rowData, row);
     }
@@ -268,7 +268,7 @@
         button.textContent = 'Update';
         button.onclick = () => updateRole(role.id);
 
-        form.elements['name'].value = role.role_name;
+        form.elements['name'].value = role.name;
         
         let selectElement = form.elements['permissions[]'];
 
