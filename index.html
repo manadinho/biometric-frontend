@@ -658,6 +658,7 @@
         const departmentsRawQuery = `SELECT departments.*, COUNT(users.id) AS user_count FROM departments LEFT JOIN users ON users.department_id = departments.id GROUP BY departments.id ORDER BY CASE WHEN departments.parent_id IS NULL THEN departments.id ELSE departments.parent_id END, departments.parent_id IS NOT NULL, departments.id;`
         const departmenstQuery = generateSqlQuery('', '', {}, departmentsRawQuery);
         const parentDepartmentsQuery = generateSqlQuery('select', 'departments', {conditions: `parent_id IS NULL`});
+        const usersWithoutDepartmentQuery = generateSqlQuery('select', 'users', {conditions: `department_id IS NULL`});
 
         // QUERY ALL TIMETABLES
         const timeTablesQuery = generateSqlQuery('select', 'timetables', {});

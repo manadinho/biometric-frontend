@@ -66,10 +66,11 @@
     var searchInput = document.getElementById('searchInput')
     searchInput.addEventListener('keyup', () => searchTable('den-employee-transfer-table', searchInput));
 
-    //QUERY ALL ROLES
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', req: {}}));
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', req: {}}));
-    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', req: {}}));
+    //QUERY 
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'all', isMutation: false, genend: 'frontend', queries: [shitsQuery]}));
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'timetables', method: 'all', isMutation: false, genend: 'frontend', queries: [timeTablesQuery]}));
+
     var SHIFTS = [];
     var TIMETABLES = [];
     var USERS = [];
@@ -107,7 +108,7 @@
 
         if(parsedEventData.data.method === 'getShiftByUserId') {
             const cell = document.getElementById(parsedEventData.data.data.cell_id);
-            const shifts = parsedEventData.data.data.shifts.map((shift) => {
+            const shifts = parsedEventData.data.data.data.map((shift) => {
                 shift.shift = SHIFTS.find(s => s.id == shift.shift_id);
                 return shift;
             });
@@ -178,7 +179,7 @@
         for (var i = 0; i < result.length; i++) {
             let departments = ` <div>`;
 
-            departments += `<div class="parent-dep-heading" onclick="getUsers(this, ${result[i].id})">${result[i].name} <span class="badge" style="margin-left: 5px">${result[i].user_count}</span></div>
+            departments += `<div class="parent-dep-heading">${result[i].name}</div>
             <ul class="child-dep-heading">
             `;
 
@@ -238,7 +239,8 @@
     function drawShiftColumn(rowData, row) {
         const cell = document.createElement("td");
         cell.id = `shift_td_${rowData.id}`;
-        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'getShiftByUserId', req: {body:{user_id: rowData.id, cell_id: cell.id}}}));
+        const shiftByUserIdQuery = generateSqlQuery('select', 'shift_user', {conditions: `user_id = ${rowData.id}`});
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'getShiftByUserId', isMutation: false, genend: 'frontend', queries: [shiftByUserIdQuery], extra:{cell_id: cell.id}}));
         spinnerStart(cell);
         row.appendChild(cell);
 
@@ -294,6 +296,18 @@
 
     function getUsers(element, id) {
 
+        // document.getElementById('all_checkbox').checked = false;
+
+        // const linkes =  document.querySelector('.child-dep-link-active');
+
+        // if(linkes) {
+        //     linkes.classList.remove('child-dep-link-active');
+        //     linkes.classList.add('child-dep-link');
+        // }
+        
+        // element.classList.add('child-dep-link-active');
+        // resetTable();
+        // window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', req: {body:{id}}}));
         document.getElementById('all_checkbox').checked = false;
 
         const linkes =  document.querySelector('.child-dep-link-active');
@@ -305,7 +319,10 @@
         
         element.classList.add('child-dep-link-active');
         resetTable();
-        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', req: {body:{id}}}));
+        const rawQuery = `SELECT users.*, departments.name AS department_name FROM users LEFT JOIN departments ON users.department_id = departments.id WHERE users.department_id = ${id} ORDER BY users.id`;
+
+        const query = generateSqlQuery('', '', {}, rawQuery);
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', isMutation: false, genend: 'frontend', queries: [query]}));
         spinnerStart(document.querySelector("#den-employee-transfer-table-body"));
     }
 
@@ -515,16 +532,10 @@
             return;
         }
 
-        const body = users.map(user => {
-            return {
-                shift_id,
-                user_id: user,
-                start_date,
-                end_date
-            }
-        });
+        let values = users.map(user => `(${user}, ${shift_id}, '${start_date}', '${end_date}', 1)`).join(',');
 
-        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'employeeSchedule', req: {body}}));
+        const employeeScheduleQuery = `INSERT INTO shift_user (user_id, shift_id, start_date, end_date, created_by) VALUES ${values}`;
+        window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'shifts', method: 'employeeSchedule', isMutation: true, genend: 'frontend', queries: [employeeScheduleQuery]}));
     }
 
     function getSelectedUsers() {

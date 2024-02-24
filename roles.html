@@ -199,6 +199,10 @@
             }
             const createRoleQuery = generateSqlQuery('insert', 'roles', {data:role});
 
+            const permissions = getInputValue( formData, 'permissions[]', 'multiple');
+
+            if(permissions.length < 1) throw new Error('Please select at least one permission');
+
             const permissionQueries = [];
             for (let permission of getInputValue( formData, 'permissions[]', 'multiple')) {
                 permissionQueries.push(generateSqlQuery('insert', 'permission_role', {data:{role_id: role.id, permission_id: permission}}));
@@ -206,7 +210,6 @@
 
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'roles', method: 'create', isMutation: true, genend: 'frontend',  queries: [createRoleQuery, ...permissionQueries]}));
         } catch (error) {
-            console.error(error);
             toast(error.message.toUpperCase(), 'warning');
         }
     }

@@ -44,8 +44,8 @@
 
 
 <script>
+    window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'usersWithoutDepartments', isMutation: false, genend: 'frontend', queries: [usersWithoutDepartmentQuery]}));
     window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
-
 
     // Event listener for receiving messages from the server
     window.DENONTEK_SOCKET.onmessage = (event) => {
@@ -59,6 +59,10 @@
 
         if(parsedEventData.data.method === 'getUsersByDepId') {
             drawTable(parsedEventData.data.data);
+        }
+
+        if(parsedEventData.data.method === 'usersWithoutDepartments') {
+            drawNoDepartments(parsedEventData.data.data);
         }
 
         if(parsedEventData.data.method === 'transferUsers') {
@@ -89,12 +93,17 @@
         }
     }
 
+    function drawNoDepartments(data) {
+        const leftSection = document.querySelector('#den-employee-transfer-left-section');
+        leftSection.innerHTML += `<div style="display: flex;align-items: center; cursor:pointer" onclick="getUsers(this, 'no_department')">No departments <span class="badge" style="margin-left: 5px">${data.length}</span> </div>`;
+    }
+
     function drawDepartments(data) {
         const result = nestCategories(data);
         for (var i = 0; i < result.length; i++) {
             let departments = ` <div>`;
 
-            departments += `<div class="parent-dep-heading" onclick="getUsers(this, ${result[i].id})">${result[i].name} <span class="badge" style="margin-left: 5px">${result[i].user_count}</span></div>
+            departments += `<div class="parent-dep-heading">${result[i].name}</div>
             <ul class="child-dep-heading">
             `;
 
@@ -210,7 +219,12 @@
         
         element.classList.add('child-dep-link-active');
         resetTable();
-        const rawQuery = `SELECT users.*, departments.name AS department_name FROM users LEFT JOIN departments ON users.department_id = departments.id WHERE users.department_id = ${id} ORDER BY users.id`;
+        let rawQuery = `SELECT * FROM users WHERE department_id IS NULL ORDER BY id`;
+
+        if(id != 'no_department') {
+            rawQuery = `SELECT users.*, departments.name AS department_name FROM users LEFT JOIN departments ON users.department_id = departments.id WHERE users.department_id = ${id} ORDER BY users.id`;
+        }
+
         const query = generateSqlQuery('', '', {}, rawQuery);
         window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'getUsersByDepId', isMutation: false, genend: 'frontend', queries: [query]}));
     }

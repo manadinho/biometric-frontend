@@ -107,6 +107,7 @@
             resetTable();
             showHideModal();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'parentDepartments', isMutation: false, genend: 'frontend', queries: [parentDepartmentsQuery]}));
         }
 
         if(parsedEventData.data.method === 'delete') {
@@ -114,6 +115,7 @@
             checkPermission();
             resetTable();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'parentDepartments', isMutation: false, genend: 'frontend', queries: [parentDepartmentsQuery]}));
         }
 
         if(parsedEventData.data.method === 'update') {
@@ -122,6 +124,7 @@
             resetTable();
             showHideModal();
             window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'all', isMutation: false, genend: 'frontend', queries: [departmenstQuery]}));
+            window.DENONTEK_SOCKET.send(JSON.stringify({type:'query', name: 'departments', method: 'parentDepartments', isMutation: false, genend: 'frontend', queries: [parentDepartmentsQuery]}));
         }
         
       }
